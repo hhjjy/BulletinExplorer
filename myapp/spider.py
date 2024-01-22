@@ -2,6 +2,24 @@ from abc import ABC, abstractmethod
 import requests
 from bs4 import BeautifulSoup
 
+
+
+#靜態類別 輸入網址轉類別
+class ScraperFactory:
+    @staticmethod
+    def get_scraper(url):
+        # 根據不同的網址返回不同的爬蟲實例
+        if "bulletin.ntust.edu.tw" in url:
+            return NTUSTBulletinScraper(url)
+        elif "lc.ntust.edu.tw" in url:
+            return NTUSTLanguageCenterScraper(url)
+        elif "www.ntust.edu.tw" in url:
+            return NTUSTMajorAnnouncementScraper(url)
+        else:
+            raise ValueError(f"No scraper found for the given URL: {url}")
+
+
+
 # 基礎爬蟲類
 class Scraper(ABC):
     def __init__(self, url):
@@ -10,7 +28,6 @@ class Scraper(ABC):
     @abstractmethod
     def scrape(self):
         pass
-
 # 台科大公佈欄爬蟲
 # https://bulletin.ntust.edu.tw/p/403-1045-1391-1.php?Lang=zh-tw
 class NTUSTBulletinScraper(Scraper):
