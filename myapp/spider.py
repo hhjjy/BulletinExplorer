@@ -100,8 +100,7 @@ class NTUSTMajorAnnouncementScraper(Scraper):
 
 
 if __name__ == '__main__':
-    Scrape = ScraperFactory.get_scraper('https://www.ntust.edu.tw/p/403-1000-168-1.php?Lang=zh-tw')
-    print(isinstance(Scrape,NTUSTLanguageCenterScraper))
+    Scrape = ScraperFactory.get_scraper('https://lc.ntust.edu.tw/p/403-1070-1053-1.php?Lang=zh-tw')
     data = Scrape.scrape()
     for row in data:
         pprint(row)
