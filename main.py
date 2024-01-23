@@ -1,7 +1,18 @@
 from abc import ABC, abstractmethod
 import requests
 from bs4 import BeautifulSoup
+from urllib.parse import urlparse
+import psycopg2
+from psycopg2 import sql
 
+
+db_config = {
+    "database": "mydb",
+    "user": "admin",
+    "password": "12345",
+    "host": "localhost",
+    "port": "65432"
+}
 
 
 #靜態類別 輸入網址轉類別
@@ -42,8 +53,7 @@ class NTUSTBulletinScraper(Scraper):
         i = 1
         data = [] 
         for row in tbody.find_all("tr"):
-            data_row = [] 
-            date = row.find("td",{"data-th":"日期"}).get_text(strip=True)            
+            data_row = []       
             publisher = row.find("td",{"data-th":"發佈單位"}).get_text(strip=True)
             title = row.find("td",{"data-th":"標題"}).get_text(strip=True)
             a_tag = row.find("a")
@@ -55,7 +65,40 @@ class NTUSTBulletinScraper(Scraper):
                 paragraphs = soup.find_all("p")
                 for p in paragraphs:
                     content += p.get_text(strip=True)
-            data.append({'date':date,'publisher':publisher,'title':title,'url':url,'content':content})
+            data.append({'publisher':publisher,'title':title,'url':url,'content':content})
+
+            try:
+
+                # Check if the data already exists
+                select_query = sql.SQL("""
+                    SELECT * FROM bulletinraw
+                    WHERE publisher = %s AND title = %s
+                """)
+                cursor.execute(select_query, (publisher, title))
+
+                # Fetch the result
+                existing_data = cursor.fetchone()
+
+                if existing_data:
+                    print("Data already exists in the database. Skipping insertion.")
+                else:
+                    # Create the INSERT query
+                    insert_query = sql.SQL("""
+                        INSERT INTO bulletinraw (publisher, title, url, content)
+                        VALUES (%s, %s, %s, %s)
+                    """)
+
+                    # Execute the query with data
+                    cursor.execute(insert_query, (publisher, title, url, content))
+
+                    # Commit the transaction
+                    connection.commit()
+
+                    print("Data inserted successfully!")
+
+
+            except (Exception, psycopg2.Error) as error:
+                print("Error while connecting to PostgreSQL:", error)
         return data
 
         
@@ -77,4 +120,9 @@ class NTUSTMajorAnnouncementScraper(Scraper):
         print("Scraping NTUST Major Announcements...")
 
 
-
+connection = psycopg2.connect(**db_config)
+cursor = connection.cursor()
+Scrape = ScraperFactory.get_scraper('https://bulletin.ntust.edu.tw/p/403-1045-1391-1.php?Lang=zh-tw')
+print(isinstance(Scrape,NTUSTLanguageCenterScraper))
+data = Scrape.scrape()
+connection.close()
