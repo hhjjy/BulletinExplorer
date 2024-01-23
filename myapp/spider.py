@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import requests
 from bs4 import BeautifulSoup
-
+from pprint import pprint
 
 
 #靜態類別 輸入網址轉類別
@@ -40,10 +40,9 @@ class NTUSTBulletinScraper(Scraper):
 
         # # Process the table one row at a time
         i = 1
-        data = [] 
         for row in tbody.find_all("tr"):
             data_row = [] 
-            date = row.find("td",{"data-th":"日期"}).get_text(strip=True)            
+            # date = row.find("td",{"data-th":"日期"}).get_text(strip=True)            
             publisher = row.find("td",{"data-th":"發佈單位"}).get_text(strip=True)
             title = row.find("td",{"data-th":"標題"}).get_text(strip=True)
             a_tag = row.find("a")
@@ -55,10 +54,9 @@ class NTUSTBulletinScraper(Scraper):
                 paragraphs = soup.find_all("p")
                 for p in paragraphs:
                     content += p.get_text(strip=True)
-            data.append({'date':date,'publisher':publisher,'title':title,'url':url,'content':content})
-        return data
+            yield {'publisher':publisher,'title':title,'url':url,'content':content}
+        # return data
 
-        
 
 # 台科大語言中心爬蟲
 class NTUSTLanguageCenterScraper(Scraper):
@@ -66,15 +64,44 @@ class NTUSTLanguageCenterScraper(Scraper):
         response = requests.get(self.url)
         soup = BeautifulSoup(response.content, 'html.parser')
         # 添加針對台科大語言中心的爬蟲邏輯
-        print("Scraping NTUST Language Center...")
-    
+        divs = soup.find_all('div', attrs={'class': 'mtitle'})
+        for tag in divs:
+            a_tag = tag.find('a')
+            url = a_tag.get('href')
+            publisher = "台科大語言中心"
+            title = ""
+            content = ""
+            if url:
+                title = a_tag.get_text(strip=True) 
+                # 取得標題的內文
+                webpage = requests.get(url)
+                webpage_soup = BeautifulSoup(webpage.content, 'html.parser')
+                div = webpage_soup.find('div',attrs={'class':'mpgdetail'})
+                p_tags = div.find_all('p')
+                for p in p_tags:
+                    content += p.get_text(strip=True)
+            yield {'publisher':publisher,'title':title,'url':url,'content':content}    
 # 台科大校網公布欄爬蟲
 class NTUSTMajorAnnouncementScraper(Scraper):
     def scrape(self):
         response = requests.get(self.url)
         soup = BeautifulSoup(response.content, 'html.parser')
-        # 添加針對台科大校網公布欄的爬蟲邏輯
-        print("Scraping NTUST Major Announcements...")
+        titles = soup.find_all('div', attrs={'class': 'mtitle'})
+        title = ""
+        url = ""
+        content = ""
+        publisher = "台科大主校網"
+        for t in titles:
+            title = t.get_text(strip=True)
+            a_tag = t.find('a')
+            url = a_tag.get('href')
+            yield {'publisher':publisher,'title':title,'url':url,'content':content}    
 
 
 
+if __name__ == '__main__':
+    Scrape = ScraperFactory.get_scraper('https://www.ntust.edu.tw/p/403-1000-168-1.php?Lang=zh-tw')
+    print(isinstance(Scrape,NTUSTLanguageCenterScraper))
+    data = Scrape.scrape()
+    for row in data:
+        pprint(row)
