@@ -12,9 +12,10 @@ import telegram
 from psycopg2 import sql, extras
 import copy
 from decimal import Decimal
+from dotenv import load_dotenv
+load_dotenv()
 
-
-TOKEN = "6588891089:AAFHlF0qbdD3UFIjLbUqu5SDiobcIkSBl5Y"
+TOKEN = os.getenv("TELEGRAM_TOKEN")
 #####PostgreSQL setup
 db_config = {
     "database": "mydb",
