@@ -6,6 +6,9 @@ name = "pypi"
 [packages]
 django = "*"
 psycopg2-binary = "*"
+requests = "*"
+telegram = "*"
+python-telegram-bot = {extras = ["job-queue"], version = "*"}
 
 [dev-packages]
 
