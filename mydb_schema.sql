@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS public.bulletinraw
 CREATE TABLE IF NOT EXISTS public.subscription
 (
     subscriptionid integer NOT NULL DEFAULT nextval('subscription_subscriptionid_seq'::regclass),
-    chatid integer,
+    chatid numeric,
     topicid integer,
     status character varying(20) COLLATE pg_catalog."default",
     notificationpreference character varying(20) COLLATE pg_catalog."default",
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS public.topics
     topicid integer NOT NULL DEFAULT nextval('topics_topicid_seq'::regclass),
     topicname character varying(255) COLLATE pg_catalog."default",
     description text COLLATE pg_catalog."default",
-    whocreate integer,
+    whocreate numeric,
     CONSTRAINT topics_pkey PRIMARY KEY (topicid)
 );
 
