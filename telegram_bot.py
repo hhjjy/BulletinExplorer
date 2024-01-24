@@ -89,12 +89,13 @@ async def AddUser(user_name, user_ids) -> None:
 #Welcome
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Sends explanation on how to use the bot."""
+    chat_id = update.effective_message.chat_id
     user_name = update.effective_user.full_name
     chat = update.effective_chat
-    context.bot_data.setdefault("user_ids", set()).add(chat.id)
-    user_ids = ", ".join(str(uid) for uid in context.bot_data.setdefault("user_ids", set()))
-    if (str(user_ids) not in str(user)): #why it is not str?
-        await AddUser(user_name, user_ids)
+    #context.bot_data.setdefault("user_ids", set()).add(chat.id)
+    #user_ids = ", ".join(str(uid) for uid in context.bot_data.setdefault("user_ids", set()))
+    if (chat_id not in user): #why it is not str?
+        await AddUser(user_name, chat_id)
         await update.message.reply_text("New User")
     await update.message.reply_text("Hi! 歡迎使用")
 
@@ -106,13 +107,18 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 #subscribe command
 async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_message.chat_id
-    topicname = update.message.text.split(' ')[1:][0]
+    try:
+        topicname = update.message.text.split(' ')[1:][0]#chinese not work
+    except:
+        await update.effective_message.reply_text("Please enter the topic name")
+        return
     cursor.execute(insert_query["checkTopicExist"], (topicname,))
     connection.commit()
     topicid = cursor.fetchone()
     if (topicid == None):
         await update.effective_message.reply_text("topic not exist")
     else:
+        print(chat_id, topicid)
         cursor.execute(insert_query["Subscription"], (chat_id, topicid))
         connection.commit()
         await update.effective_message.reply_text("Subscribe topic successfully")
@@ -122,7 +128,11 @@ async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 #unsubscribe command
 async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_message.chat_id
-    topicname = update.message.text.split(' ')[1:][0]
+    try:
+        topicname = update.message.text.split(' ')[1:][0]
+    except:
+        await update.effective_message.reply_text("Please enter the topic name")
+        return
     cursor.execute(insert_query["checkTopicExist"], (topicname,))
     connection.commit()
     topicid = cursor.fetchall()[0][0]
