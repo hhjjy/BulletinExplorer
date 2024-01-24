@@ -18,11 +18,11 @@ load_dotenv()
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 #####PostgreSQL setup
 db_config = {
-    "database": "mydb",
-    "user": "admin",
-    "password": "12345",
+    "database": os.getenv("POSTGRES_DB"),
+    "user": os.getenv("POSTGRES_USER"),
+    "password": os.getenv("POSTGRES_PASSWORD"),
     "host": "localhost",
-    "port": "65432"
+    "port": os.getenv("POSTGRES_PORT")
 }
 connection = psycopg2.connect(**db_config)
 cursor = connection.cursor() #Init. connection
