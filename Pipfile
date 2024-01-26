@@ -10,6 +10,7 @@ requests = "*"
 telegram = "*"
 python-telegram-bot = {extras = ["job-queue"], version = "*"}
 python-dotenv = "*"
+python-multipart = "*"
 
 [dev-packages]
 
