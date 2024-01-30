@@ -15,9 +15,13 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime#
 
+
+# make sure you have run the following command before testing!
+# ssh -L 65432:localhost:65432 mitlab@140.118.2.52 -p 33700
 # uvicorn api:app --reload
+
 db_config = {
     "database": "mydb",
     "user": "admin",
@@ -110,6 +114,44 @@ async def get_data(category: Optional[str], numbers: int = Query(default=20, le=
             content={"error": str(Error)},
         )
 
+class PostIn(BaseModel):
+    publisher: str
+    title: str
+    url: str
+    content: str
+
+@app.post("/api/savedata")
+async def save_data(post: PostIn):
+    connection = psycopg2.connect(**db_config)
+    cursor = connection.cursor()
+
+    try:
+        # 檢查數據是否已存在
+        cursor.execute("""
+            SELECT * FROM bulletinraw
+            WHERE publisher = %s AND title = %s
+        """, (post.publisher, post.title))
+
+        if cursor.fetchone() is None:
+            # 如果數據不存在，則插入新數據
+            cursor.execute("""
+                INSERT INTO bulletinraw (publisher, title, url, content)
+                VALUES (%s, %s, %s, %s)
+            """, (post.publisher, post.title, post.url, post.content))
+            connection.commit()
+            return {"message": "Data inserted successfully"}
+        else:
+            return {"message": "Data already exists. No action taken."}
+
+    except Exception as Error:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error)}
+        )
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
 
 if __name__ == "__main__":
     # 获取数据库中的所有数据
