@@ -30,8 +30,65 @@ db_config = {
     "port": "65432",
 }
 
+app = FastAPI()
 
-## 取得最新的幾筆資料
+# 加入 CORSMiddleware 以處理跨來源請求
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # 允許所有來源，你也可以指定特定的來源
+    allow_credentials=True,
+    allow_methods=["*"],  # 允許所有 HTTP 方法
+    allow_headers=["*"],  # 允許所有 HTTP 標頭
+)
+# get data 
+class Post(BaseModel):
+    id: int
+    publisher: str
+    title: str
+    url: str
+    content: str
+    addtime: datetime
+# save data 
+class PostIn(BaseModel):
+    publisher: str
+    title: str
+    url: str
+    content: str
+
+# SELECT *,
+#     (CASE WHEN publisher LIKE '%台%' THEN 1 ELSE 0 END +
+#      CASE WHEN publisher LIKE '%網%' THEN 1 ELSE 0 END) AS Score
+# FROM public.bulletinraw
+# WHERE publisher LIKE '%台%' OR publisher LIKE '%網%'
+# ORDER BY Score DESC, publish_date DESC, id ASC;
+# SQL語法生成
+# 輸入台網
+def create_sql_query(keywords,number_data):
+    case_statements = []
+    where_conditions = []
+    params = []
+
+    for  keyword in keywords:
+        param = f"%{keyword}%"
+        case_statements.append(f"(CASE WHEN publisher LIKE %s THEN 1 ELSE 0 END)")
+        where_conditions.append(f"publisher LIKE %s")
+        params.append(param)
+    
+    params.extend(params)# 參數再重複一次,原本是[台,網],重複一次就變成 [台,網,台,網] 為了後面SQL搜索時運用到避免遇到SQL注入攻擊
+    params.append(number_data) #補上數據資料限制筆數
+    case_sql = " + ".join(case_statements)
+    where_sql = " OR ".join(where_conditions)
+
+    sql_query = f"""
+    SELECT *,
+        ({case_sql}) AS Score
+    FROM public.bulletinraw
+    WHERE {where_sql}
+    ORDER BY Score DESC, addtime DESC
+    LIMIT %s;
+    """
+    return sql_query, params
+# 取得最新的幾筆資料
 ## 取得的格式如下 ((ID,發布者,url,content,上傳時間),()...,)
 def fetch_data(category: Optional[str], numbers: int):
     connection = psycopg2.connect(**db_config)
@@ -46,16 +103,11 @@ def fetch_data(category: Optional[str], numbers: int):
         )
         cursor.execute(query, (numbers,))
     else:
+        SQL_query ,params= create_sql_query(category,numbers)
         query = sql.SQL(
-            """
-                        SELECT * FROM bulletinraw
-                        WHERE publisher = %s
-                        ORDER BY addtime DESC
-                        LIMIT %s;
-                        """
+            SQL_query
         )
-        cursor.execute(query, (category, numbers))
-
+        cursor.execute(query, params)
     records = cursor.fetchall()
     if connection:
         cursor.close()
@@ -63,32 +115,9 @@ def fetch_data(category: Optional[str], numbers: int):
         print("PostgreSQL connection is closed")
 
     return records
-
-
-app = FastAPI()
-
-# 加入 CORSMiddleware 以處理跨來源請求
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # 允許所有來源，你也可以指定特定的來源
-    allow_credentials=True,
-    allow_methods=["*"],  # 允許所有 HTTP 方法
-    allow_headers=["*"],  # 允許所有 HTTP 標頭
-)
-
-
-class Post(BaseModel):
-    id: int
-    publisher: str
-    title: str
-    url: str
-    content: str
-    addtime: datetime
-
-
 # 測試過中文的參數進入fastapi會自動處理不須轉換
 @app.get("/api/getdata", response_model=List[Post])
-async def get_data(category: Optional[str], numbers: int = Query(default=20, le=100)):
+async def get_data(category: Optional[str], numbers: int = Query(default=20, le=200)):
     try:
         raw_data = fetch_data(category, numbers)  # ((id, publisher,),....)
         if not raw_data:
@@ -113,12 +142,6 @@ async def get_data(category: Optional[str], numbers: int = Query(default=20, le=
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"error": str(Error)},
         )
-
-class PostIn(BaseModel):
-    publisher: str
-    title: str
-    url: str
-    content: str
 
 @app.post("/api/savedata")
 async def save_data(post: PostIn):
@@ -153,6 +176,29 @@ async def save_data(post: PostIn):
             cursor.close()
             connection.close()
 
+
+
 if __name__ == "__main__":
     # 获取数据库中的所有数据
-    all_data = fetch_data("", 10)
+    all_data = fetch_data("台科大", 100)
+    # 使用示例
+
+    # connection = psycopg2.connect(**db_config)
+    # cursor = connection.cursor()
+
+    # SQL_query ,params = create_sql_query("台科大主網",10)
+    # query = sql.SQL(
+    #     SQL_query
+    # )
+    # cursor.execute(query, params)
+
+    # records = cursor.fetchall()
+    # if connection:
+    #     cursor.close()
+    #     connection.close()
+    #     print("PostgreSQL connection is closed")
+    # print(records)
+
+    # # 如果关键词改变
+    # keywords = ['台', '科', '大']
+    # print(create_sql_query(keywords))
