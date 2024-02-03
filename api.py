@@ -17,10 +17,12 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 
-
 # make sure you have run the following command before testing!
 # ssh -L 65432:localhost:65432 mitlab@140.118.2.52 -p 33700
 # uvicorn api:app --reload
+from log_config import setup_logger
+import logging,traceback
+logger = setup_logger("api_service", log_level=logging.DEBUG)
 
 db_config = {
     "database": "mydb",
@@ -119,6 +121,7 @@ def fetch_data(category: Optional[str], numbers: int):
 @app.get("/api/getdata", response_model=List[Post])
 async def get_data(category: Optional[str], numbers: int = Query(default=20, le=200)):
     try:
+        logger.info(f"Fetching {numbers} latest posts from {category}")
         raw_data = fetch_data(category, numbers)  # ((id, publisher,),....)
         if not raw_data:
             raise HTTPException(
@@ -137,18 +140,21 @@ async def get_data(category: Optional[str], numbers: int = Query(default=20, le=
         ]
         return data
     except Exception as Error:
-        error_message = '{"error": "%s"}' % Error
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"error": str(Error)},
+            content={"error": str(Error),"detail":error_traceback},
         )
 
 @app.post("/api/savedata")
 async def save_data(post: PostIn):
-    connection = psycopg2.connect(**db_config)
-    cursor = connection.cursor()
-
+    logger.info(f"Saving post {post} to database")
     try:
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
         # 檢查數據是否已存在
         cursor.execute("""
             SELECT * FROM bulletinraw
@@ -162,14 +168,19 @@ async def save_data(post: PostIn):
                 VALUES (%s, %s, %s, %s)
             """, (post.publisher, post.title, post.url, post.content))
             connection.commit()
+            logger.info(f"Saving Done")
             return {"message": "Data inserted successfully"}
         else:
+            logger.info(f"Data already exists. No action taken.")
             return {"message": "Data already exists. No action taken."}
 
     except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"error": str(Error)}
+            content={"error": str(Error),"detail":error_traceback},
         )
     finally:
         if connection:
