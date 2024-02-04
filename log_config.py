@@ -22,7 +22,7 @@ def setup_logger(service_name, log_dir="log", max_log_size=1000000, backup_count
         os.makedirs(log_dir)
 
     log_file = os.path.join(log_dir, f"{service_name}.log")
-    log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s')
 
     handler = RotatingFileHandler(log_file, maxBytes=max_log_size, backupCount=backup_count)
     handler.setFormatter(log_formatter)

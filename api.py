@@ -11,7 +11,7 @@ import psycopg2
 from psycopg2 import sql
 from pprint import pprint
 from fastapi import FastAPI, HTTPException, Query, Response, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse,RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -42,6 +42,10 @@ app.add_middleware(
     allow_methods=["*"],  # 允許所有 HTTP 方法
     allow_headers=["*"],  # 允許所有 HTTP 標頭
 )
+@app.get("/")
+async def root():
+    return RedirectResponse(url='/docs')
+
 # get data 
 class Post(BaseModel):
     id: int
@@ -58,75 +62,72 @@ class PostIn(BaseModel):
     content: str
 
 # SELECT *,
-#     (CASE WHEN publisher LIKE '%台%' THEN 1 ELSE 0 END +
-#      CASE WHEN publisher LIKE '%網%' THEN 1 ELSE 0 END) AS Score
+#      (CASE WHEN publisher LIKE '%台%' THEN 1 ELSE 0 END +
+#       CASE WHEN publisher LIKE '%網%' THEN 1 ELSE 0 END) AS Score
 # FROM public.bulletinraw
-# WHERE publisher LIKE '%台%' OR publisher LIKE '%網%'
-# ORDER BY Score DESC, publish_date DESC, id ASC;
-# SQL語法生成
+# WHERE (addtime >= '2023-01-01' AND addtime <= '2024-01-21')
+# and (publisher LIKE '%台%' OR publisher LIKE '%網%')
+# ORDER BY Score DESC, addtime DESC, id ASC;
 # 輸入台網
-def create_sql_query(keywords,number_data):
+def create_sql_query(keywords,number_data,start_date,end_date):
     case_statements = []
     where_conditions = []
     params = []
+    if keywords:#有關鍵字
+        for  keyword in keywords:
+            param = f"%{keyword}%"
+            case_statements.append(f"(CASE WHEN publisher LIKE %s THEN 1 ELSE 0 END)")
+            where_conditions.append(f"publisher LIKE %s")
+            params.append(param)
+        
+        params.extend(params)# 參數再重複一次,原本是[台,網],重複一次就變成 [台,網,台,網] 為了後面SQL搜索時運用到避免遇到SQL注入攻擊
+        params.extend([number_data] if start_date is None or end_date is None  else  [start_date,end_date,number_data])
+        case_sql = " + ".join(case_statements)
+        where_sql = " OR ".join(where_conditions)
+        where_date_sql = "" if start_date is None and end_date is None else f"AND ( addtime >=%s AND addtime<=%s)"
 
-    for  keyword in keywords:
-        param = f"%{keyword}%"
-        case_statements.append(f"(CASE WHEN publisher LIKE %s THEN 1 ELSE 0 END)")
-        where_conditions.append(f"publisher LIKE %s")
-        params.append(param)
-    
-    params.extend(params)# 參數再重複一次,原本是[台,網],重複一次就變成 [台,網,台,網] 為了後面SQL搜索時運用到避免遇到SQL注入攻擊
-    params.append(number_data) #補上數據資料限制筆數
-    case_sql = " + ".join(case_statements)
-    where_sql = " OR ".join(where_conditions)
-
-    sql_query = f"""
-    SELECT *,
-        ({case_sql}) AS Score
-    FROM public.bulletinraw
-    WHERE {where_sql}
-    ORDER BY Score DESC, addtime DESC
-    LIMIT %s;
-    """
+        sql_query = f"""
+        SELECT *,
+            ({case_sql}) AS Score
+        FROM public.bulletinraw
+        WHERE ({where_sql}) {where_date_sql}
+        ORDER BY Score DESC, addtime DESC
+        LIMIT %s;
+        """ 
+    else :#沒有關鍵字
+        where_date_sql = "" if start_date is None or end_date is None else f"WHERE ( addtime >=%s AND addtime<=%s)"
+        sql_query = f"""
+                SELECT * FROM bulletinraw
+                {where_date_sql}
+                ORDER BY addtime DESC
+                LIMIT %s;
+            """
+        params.extend([number_data] if start_date is None or end_date is None  else  [start_date,end_date,number_data] )
+    logger.debug(f"sql_query:{sql_query},params:{params}")
     return sql_query, params
 # 取得最新的幾筆資料
 ## 取得的格式如下 ((ID,發布者,url,content,上傳時間),()...,)
-def fetch_data(category: Optional[str], numbers: int):
+def fetch_data(category: str,numbers:int, start_date: str, end_date: str):
+    logger.debug(f"category:{category},numbers:{numbers},start_date:{start_date},end_date:{end_date}")
     connection = psycopg2.connect(**db_config)
     cursor = connection.cursor()
-    if category in (None, "", "all"):  # 检查category是否为空或为'all'
-        query = sql.SQL(
-            """
-                        SELECT * FROM bulletinraw
-                        ORDER BY addtime DESC
-                        LIMIT %s;
-                        """
-        )
-        cursor.execute(query, (numbers,))
-    else:
-        SQL_query ,params= create_sql_query(category,numbers)
-        query = sql.SQL(
-            SQL_query
-        )
-        cursor.execute(query, params)
+    SQL_query ,params= create_sql_query(category,numbers,start_date,end_date)
+    query = sql.SQL(
+        SQL_query
+    )
+    cursor.execute(query, params)
     records = cursor.fetchall()
     if connection:
         cursor.close()
         connection.close()
         print("PostgreSQL connection is closed")
-
     return records
 # 測試過中文的參數進入fastapi會自動處理不須轉換
 @app.get("/api/getdata", response_model=List[Post])
-async def get_data(category: Optional[str], numbers: int = Query(default=20, le=200)):
+async def get_data(category: Optional[str] = None, start_date:Optional[str]= None,end_date:Optional[str]= None,numbers: int = Query(default=20, le=200)):
     try:
-        logger.info(f"Fetching {numbers} latest posts from {category}")
-        raw_data = fetch_data(category, numbers)  # ((id, publisher,),....)
-        if not raw_data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Category not found"
-            )
+        logger.info(f"Fetching {numbers} latest posts from {category} ,Date:{start_date}~{end_date}")
+        raw_data = fetch_data(category, numbers,start_date,end_date)  # ((id, publisher,),....)
         data = [
             Post(
                 id=row[0],
@@ -143,7 +144,6 @@ async def get_data(category: Optional[str], numbers: int = Query(default=20, le=
         error_message = "Error occurred: {}".format(str(Error))
         error_traceback = traceback.format_exc()
         logger.error("%s\n%s", error_message, error_traceback)
-        
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"error": str(Error),"detail":error_traceback},
@@ -153,6 +153,7 @@ async def get_data(category: Optional[str], numbers: int = Query(default=20, le=
 async def save_data(post: PostIn):
     logger.info(f"Saving post {post} to database")
     try:
+
         connection = psycopg2.connect(**db_config)
         cursor = connection.cursor()
         # 檢查數據是否已存在
@@ -191,7 +192,9 @@ async def save_data(post: PostIn):
 
 if __name__ == "__main__":
     # 获取数据库中的所有数据
-    all_data = fetch_data("台科大", 100)
+    # a,b = create_sql_query("台科大", 100,"2023-08-01","2023-08-14")
+    data = fetch_data("台科大", 100,None,None)
+
     # 使用示例
 
     # connection = psycopg2.connect(**db_config)
