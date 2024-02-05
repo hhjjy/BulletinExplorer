@@ -15,7 +15,8 @@ from fastapi.responses import JSONResponse,RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
+
 
 # make sure you have run the following command before testing!
 # ssh -L 65432:localhost:65432 mitlab@140.118.2.52 -p 33700
@@ -69,6 +70,18 @@ class PostIn(BaseModel):
 # and (publisher LIKE '%台%' OR publisher LIKE '%網%')
 # ORDER BY Score DESC, addtime DESC, id ASC;
 # 輸入台網
+
+def adjust_date_range(start_date_str,end_date_str):
+    logger.info(f"input {start_date_str}~{end_date_str}")
+    # 將字符串轉換為 datetime 對象
+    start_date_o = datetime.strptime(start_date_str, "%Y-%m-%d")
+    end_date_o = datetime.strptime(end_date_str, "%Y-%m-%d")
+    # 將結束日期增加一天
+    end_date_o += timedelta(days=1)
+    # 如果需要，將 datetime 對象轉換回字符串
+    end_date_str = end_date_o.strftime("%Y-%m-%d")
+    logger.info(f"return {start_date_str}~{end_date_str}")
+    return start_date_str,end_date_str
 def create_sql_query(keywords,number_data,start_date,end_date):
     case_statements = []
     where_conditions = []
@@ -79,12 +92,13 @@ def create_sql_query(keywords,number_data,start_date,end_date):
             case_statements.append(f"(CASE WHEN publisher LIKE %s THEN 1 ELSE 0 END)")
             where_conditions.append(f"publisher LIKE %s")
             params.append(param)
-        
+        if start_date is not None and end_date is not None :
+            start_date,end_date = adjust_date_range(start_date,end_date)
         params.extend(params)# 參數再重複一次,原本是[台,網],重複一次就變成 [台,網,台,網] 為了後面SQL搜索時運用到避免遇到SQL注入攻擊
         params.extend([number_data] if start_date is None or end_date is None  else  [start_date,end_date,number_data])
         case_sql = " + ".join(case_statements)
         where_sql = " OR ".join(where_conditions)
-        where_date_sql = "" if start_date is None and end_date is None else f"AND ( addtime >=%s AND addtime<=%s)"
+        where_date_sql = "" if start_date is None and end_date is None else f"AND ( addtime >= %s AND addtime < %s)"
 
         sql_query = f"""
         SELECT *,
@@ -95,7 +109,7 @@ def create_sql_query(keywords,number_data,start_date,end_date):
         LIMIT %s;
         """ 
     else :#沒有關鍵字
-        where_date_sql = "" if start_date is None or end_date is None else f"WHERE ( addtime >=%s AND addtime<=%s)"
+        where_date_sql = "" if start_date is None or end_date is None else f"WHERE ( addtime >= %s AND addtime < %s)"
         sql_query = f"""
                 SELECT * FROM bulletinraw
                 {where_date_sql}
@@ -191,28 +205,6 @@ async def save_data(post: PostIn):
 
 
 if __name__ == "__main__":
-    # 获取数据库中的所有数据
-    # a,b = create_sql_query("台科大", 100,"2023-08-01","2023-08-14")
-    data = fetch_data("台科大", 100,None,None)
-
-    # 使用示例
-
-    # connection = psycopg2.connect(**db_config)
-    # cursor = connection.cursor()
-
-    # SQL_query ,params = create_sql_query("台科大主網",10)
-    # query = sql.SQL(
-    #     SQL_query
-    # )
-    # cursor.execute(query, params)
-
-    # records = cursor.fetchall()
-    # if connection:
-    #     cursor.close()
-    #     connection.close()
-    #     print("PostgreSQL connection is closed")
-    # print(records)
-
-    # # 如果关键词改变
-    # keywords = ['台', '科', '大']
-    # print(create_sql_query(keywords))
+ 
+    data = fetch_data(None, 5,'2024-01-01',None)
+    pprint(data)
