@@ -71,8 +71,6 @@ class NTUSTBulletinScraper(Scraper):
                     content += p.get_text(strip=True)
             yield {'publisher':publisher,'title':title,'url':url,'content':content}
 
-
-
 # 台科大語言中心爬蟲
 class NTUSTLanguageCenterScraper(Scraper):
     def scrape(self):
