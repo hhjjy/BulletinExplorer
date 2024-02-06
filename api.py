@@ -86,14 +86,14 @@ def create_sql_query(keywords,number_data,start_date,end_date):
     case_statements = []
     where_conditions = []
     params = []
+    if start_date is not None and end_date is not None :#調整時間！
+        start_date,end_date = adjust_date_range(start_date,end_date)
     if keywords:#有關鍵字
         for  keyword in keywords:
             param = f"%{keyword}%"
             case_statements.append(f"(CASE WHEN publisher LIKE %s THEN 1 ELSE 0 END)")
             where_conditions.append(f"publisher LIKE %s")
             params.append(param)
-        if start_date is not None and end_date is not None :
-            start_date,end_date = adjust_date_range(start_date,end_date)
         params.extend(params)# 參數再重複一次,原本是[台,網],重複一次就變成 [台,網,台,網] 為了後面SQL搜索時運用到避免遇到SQL注入攻擊
         params.extend([number_data] if start_date is None or end_date is None  else  [start_date,end_date,number_data])
         case_sql = " + ".join(case_statements)
