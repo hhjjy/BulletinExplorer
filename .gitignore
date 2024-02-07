@@ -9,7 +9,8 @@ main/static/*
 !main/static/.gitkeep
 main/apps/dataprovider/storage/*
 !main/apps/dataprovider/storage/**/.gitkeep
-
+Pipfile
+Pipfile.lock
 # Local Dev (for creatining scripts etc. locally that dont get tracked)
 *LOCAL.py
 *LOCAL.toml
