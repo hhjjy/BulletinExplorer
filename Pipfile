@@ -11,6 +11,7 @@ telegram = "*"
 python-telegram-bot = {extras = ["job-queue"], version = "*"}
 python-dotenv = "*"
 python-multipart = "*"
+fastapi = "*"
 
 [dev-packages]
 
