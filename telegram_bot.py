@@ -21,8 +21,8 @@ db_config = {
     "database": os.getenv("POSTGRES_DB"),
     "user": os.getenv("POSTGRES_USER"),
     "password": os.getenv("POSTGRES_PASSWORD"),
-    "host": "localhost",
-    "port": os.getenv("POSTGRES_PORT")
+    "host": "MyPostgres",
+    "port": "5432"
 }
 connection = psycopg2.connect(**db_config)
 cursor = connection.cursor() #Init. connection

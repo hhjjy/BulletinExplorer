@@ -9,6 +9,7 @@ Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查�
 
 import psycopg2
 from psycopg2 import sql
+import os
 from pprint import pprint
 from fastapi import FastAPI, HTTPException, Query, Response, status
 from fastapi.responses import JSONResponse,RedirectResponse
@@ -16,6 +17,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+load_dotenv()
 
 
 # make sure you have run the following command before testing!
@@ -26,11 +29,11 @@ import logging,traceback
 logger = setup_logger("api_service", log_level=logging.DEBUG)
 
 db_config = {
-    "database": "mydb",
-    "user": "admin",
-    "password": "12345",
-    "host": "localhost",
-    "port": "65432",
+    "database": os.getenv("POSTGRES_DB"),
+    "user": os.getenv("POSTGRES_USER"),
+    "password": os.getenv("POSTGRES_PASSWORD"),
+    "host": "MyPostgres",
+    "port": "5432"
 }
 
 app = FastAPI()

@@ -14,4 +14,28 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    networks:
+      - mynetwork
 
+  telegram_bot:
+    image: python:3.8.13
+    container_name: TelegramBot
+    command: bash -c "cd /app && pip install pipenv && pipenv install --deploy --system && python3 telegram_bot.py"
+    volumes:
+      - .:/app
+    networks:
+      - mynetwork
+
+  api:
+    image: python:3.8.13
+    container_name: API
+    command: bash -c "cd /app && pip install pipenv && pipenv install --deploy --system && python3 api.py"
+    volumes:
+      - .:/app
+    networks:
+      - mynetwork
+
+networks:
+  mynetwork:
+    driver: bridge
+    
