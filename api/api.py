@@ -207,6 +207,49 @@ async def save_data(post: PostIn):
 
 
 
+@app.post("/bot/register_user")
+async def register_user(post: PostIn):
+    logger.info(f"Saving post {post} to database")
+    try:
+
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+        # 檢查數據是否已存在
+        sql.SQL("""
+            INSERT INTO account (name, chatid)
+            VALUES (%s, %s)
+        """)
+        cursor.execute("""
+            SELECT * FROM account
+            WHERE name = %s AND chatid = %s
+        """, (post.name, post.chatid))
+
+        if cursor.fetchone() is None:
+            # 如果數據不存在，則插入新數據
+            cursor.execute("""
+                INSERT INTO account (name, chatid)
+                VALUES (%s, %s)
+            """, (post.name, post.chatid))
+            connection.commit()
+            logger.info(f"Add user Done")
+            return {"message": "User inserted successfully"}
+        else:
+            logger.info(f"User already exists. No action taken.")
+            return {"message": "User already exists. No action taken."}
+
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
+
 if __name__ == "__main__":
  
     data = fetch_data(None, 5,'2024-01-01',None)
