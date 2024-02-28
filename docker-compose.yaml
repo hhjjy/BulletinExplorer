@@ -20,18 +20,20 @@ services:
   telegram_bot:
     image: python:3.8.13
     container_name: TelegramBot
-    command: bash -c "cd /app && pip install pipenv && pipenv install --deploy --system && python3 telegram_bot.py"
+    command: bash -c "cd /app/telegram_bot && pip install pipenv && pipenv install --deploy --system && python3 telegram_bot.py"
     volumes:
       - .:/app
+      - ./.env:/app/telegram_bot/.env
     networks:
       - mynetwork
 
   api:
     image: python:3.8.13
     container_name: API
-    command: bash -c "cd /app && pip install pipenv && pipenv install --deploy --system && python3 api.py"
+    command: bash -c "cd /app/api && pip install pipenv && pipenv install --deploy --system && python3 api.py"
     volumes:
       - .:/app
+      - ./.env:/app/api/.env
     networks:
       - mynetwork
 
