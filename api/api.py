@@ -64,6 +64,9 @@ class PostIn(BaseModel):
     title: str
     url: str
     content: str
+class NewUser(BaseModel):
+    name: str
+    chatid: str
 
 # SELECT *,
 #      (CASE WHEN publisher LIKE '%台%' THEN 1 ELSE 0 END +
@@ -208,7 +211,7 @@ async def save_data(post: PostIn):
 
 
 @app.post("/bot/register_user")
-async def register_user(post: PostIn):
+async def register_user(post: NewUser):
     logger.info(f"Saving post {post} to database")
     try:
 
