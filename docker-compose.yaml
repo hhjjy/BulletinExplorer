@@ -30,10 +30,13 @@ services:
   api:
     image: python:3.8.13
     container_name: API
-    command: bash -c "cd /app/api && pip install pipenv && pipenv install -r requirements.txt  && pipenv run python3 api.py"
+    command: bash -c "cd /app/api && pip install pipenv uvicorn && pipenv install -r requirements.txt  && pipenv run uvicorn api:app --reload"
     volumes:
       - .:/app
+      - ./log/:/app/api/log/
       - ./.env:/app/api/.env
+    ports:
+      - 8000:8000
     networks:
       - mynetwork
 
