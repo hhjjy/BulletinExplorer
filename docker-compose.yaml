@@ -6,6 +6,8 @@ services:
     container_name: MyPostgres
     volumes:
       - ${HOST_DIR}:/var/lib/postgresql/data
+      - ./mydb_schema.sql:/docker-entrypoint-initdb.d/mydb_schema.sql  # Mount the SQL file into the container
+
     expose:
       - 5432
     ports:
