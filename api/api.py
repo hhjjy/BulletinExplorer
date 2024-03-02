@@ -52,7 +52,7 @@ async def root():
 
 # get data 
 class Post(BaseModel):
-    id: int
+    rawid: int
     publisher: str
     title: str
     url: str
@@ -67,6 +67,15 @@ class PostIn(BaseModel):
 class NewUser(BaseModel):
     name: str
     chatid: str
+class Subribe(BaseModel):
+    chatid: str
+    labelid: str
+class GetLabelid(BaseModel):
+    labelname: str
+class UserId(BaseModel):
+    chatid: str
+class ListSubTable(BaseModel):
+    labelname: str
 
 # SELECT *,
 #      (CASE WHEN publisher LIKE '%台%' THEN 1 ELSE 0 END +
@@ -212,16 +221,12 @@ async def save_data(post: PostIn):
 
 @app.post("/bot/register_user")
 async def register_user(post: NewUser):
-    logger.info(f"Saving post {post} to database")
+    logger.info(f"Add user {post.name} {post.chatid} to database")
     try:
 
         connection = psycopg2.connect(**db_config)
         cursor = connection.cursor()
         # 檢查數據是否已存在
-        sql.SQL("""
-            INSERT INTO account (name, chatid)
-            VALUES (%s, %s)
-        """)
         cursor.execute("""
             SELECT * FROM account
             WHERE name = %s AND chatid = %s
@@ -252,6 +257,137 @@ async def register_user(post: NewUser):
         if connection:
             cursor.close()
             connection.close()
+
+@app.post("/bot/delete_subscription")
+async def delete_subscription(post: Subribe):
+    logger.info(f"{post.chatid} is Unsubscribe {post.labelid}")
+    try:
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+        # 檢查數據是否已存在
+        cursor.execute("""
+            UPDATE public.subscription
+            SET status = 'Unsubscribed'
+            WHERE chatid = %s AND labelid = %s;
+        """, (post.chatid, post.labelid))
+        connection.commit()
+        logger.info(f"{post.chatid} Unsubscribe {post.labelid} Done")
+        return {"message": "Unsubscribe successfully"}
+
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
+
+@app.post("/bot/add_subscription")
+async def add_subscription(post: Subribe):
+    logger.info(f"{post.chatid} is Subscribe {post.labelid}")
+    try:
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+        # 檢查數據是否已存在
+        cursor.execute("""
+            INSERT INTO public.subscription (chatid, labelid, status, notificationpreference)
+            VALUES (%s, %s, 'Subscribed', 'telegram')
+            ON CONFLICT (chatid, labelid) DO UPDATE 
+            SET status = 'Subscribed'
+            WHERE public.subscription.status = 'Unsubscribed'
+            RETURNING *;
+        """, (post.chatid, post.labelid))
+        connection.commit()
+        logger.info(f"{post.chatid} Subscribe {post.labelid} Done")
+        return {"message": "Subscribe successfully"}
+
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
+
+@app.post("/api/get_labelid")
+async def get_labelid(post: GetLabelid):
+    try:
+        logger.info(f"{post} is queriying label name")
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+        # 檢查數據是否已存在
+        cursor.execute("""
+            SELECT labelid
+            FROM label
+            WHERE labelname = %s;
+        """, (post.labelname, ))#so weird
+        connection.commit()
+        label_name = cursor.fetchone()
+        logger.info(f"get labelid Done {label_name}")
+        return label_name
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+
+@app.post("/api/list_subscription")#, response_model=List[ListSubTable])
+async def list_subscription(post:UserId):
+    try:
+        logger.info(f"{post.chatid} is listing subscription")
+
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+        # 檢查數據是否已存在
+        cursor.execute("""
+            SELECT s.chatid, l.labelname
+            FROM subscription s
+            JOIN label l ON s.labelid = l.labelid
+            WHERE s.chatid = %s AND s.status = 'Subscribed';
+        """, (post.chatid, ))#so weird
+
+        records = cursor.fetchall()
+        return records
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+
+
+@app.post("/api/start_scraper")
+async def start_scraper():
+    try:
+        logger.info(f"Start Scraper")
+        os.system("python3 ../scraper.py")  # call scraper
+
+
+        return "Done"
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+
 
 if __name__ == "__main__":
  
