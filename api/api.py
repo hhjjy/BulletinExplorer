@@ -240,7 +240,7 @@ async def register_user(post: NewUser):
             """, (post.name, post.chatid))
             connection.commit()
             logger.info(f"Add user Done")
-            return {"message": "User inserted successfully"}
+            return {"message": "Welcome New User"}
         else:
             logger.info(f"User already exists. No action taken.")
             return {"message": "User already exists. No action taken."}
@@ -319,7 +319,7 @@ async def add_subscription(post: Subribe):
             cursor.close()
             connection.close()
 
-@app.post("/api/get_labelid")
+@app.post("/bot/get_labelid")
 async def get_labelid(post: GetLabelid):
     try:
         logger.info(f"{post} is queriying label name")
@@ -344,7 +344,7 @@ async def get_labelid(post: GetLabelid):
             content={"error": str(Error),"detail":error_traceback},
         )
 
-@app.post("/api/list_subscription")#, response_model=List[ListSubTable])
+@app.post("/bot/list_subscription")#, response_model=List[ListSubTable])
 async def list_subscription(post:UserId):
     try:
         logger.info(f"{post.chatid} is listing subscription")
@@ -353,11 +353,33 @@ async def list_subscription(post:UserId):
         cursor = connection.cursor()
         # 檢查數據是否已存在
         cursor.execute("""
-            SELECT s.chatid, l.labelname
-            FROM subscription s
-            JOIN label l ON s.labelid = l.labelid
+            SELECT labelname FROM subscription s
+            INNER JOIN label ON label.labelid = s.labelid 
             WHERE s.chatid = %s AND s.status = 'Subscribed';
+            
         """, (post.chatid, ))#so weird
+
+        records = cursor.fetchall()
+        return records
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+@app.post("/bot/get_user")#, response_model=List[ListSubTable])
+async def get_user():
+    try:
+        logger.info(f"getting user chatid")
+
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+        # 檢查數據是否已存在
+        cursor.execute("""
+            SELECT chatid FROM account
+        """,)#so weird
 
         records = cursor.fetchall()
         return records

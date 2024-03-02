@@ -4,3 +4,4 @@ psycopg2_binary==2.9.9
 pydantic==2.6.1
 python-dotenv==1.0.1
 Requests==2.31.0
+uvicorn==0.27.1

@@ -7,7 +7,6 @@ services:
     volumes:
       - ${HOST_DIR}:/var/lib/postgresql/data
       - ./mydb_schema.sql:/docker-entrypoint-initdb.d/mydb_schema.sql  # Mount the SQL file into the container
-
     expose:
       - 5432
     ports:
@@ -19,22 +18,10 @@ services:
     networks:
       - mynetwork
 
-  telegram_bot:
-    image: python:3.8.13
-    container_name: TelegramBot
-    command: bash -c "cd /app/telegram_bot && pip install pipenv && pipenv install -r requirements.txt && pipenv run python3 telegram_bot.py"
-    volumes:
-      - .:/app
-      - ./.env:/app/telegram_bot/.env
-    networks:
-      - mynetwork
-
   api:
     image: python:3.12.2
     container_name: API
-    command: bash -c "cd /app/api && pip install uvicorn psycopg2-binary fastapi python-dotenv && pip install -r requirements.txt && uvicorn api:app --reload --host 0.0.0.0 --port 8000"
-
-
+    command: bash -c "cd /app/api && pip install uvicorn && pip install -r requirements.txt && uvicorn api:app --reload --host 0.0.0.0 --port 8000"
     volumes:
       - .:/app
       - ./log/:/app/api/log/
@@ -43,6 +30,21 @@ services:
       - "8000:8000"
     networks:
       - mynetwork
+    depends_on:
+      - postgres
+
+  telegram_bot:
+    image: python:3.8.13
+    container_name: TelegramBot
+    command: bash -c "cd /app/telegram_bot && pip install -r requirements.txt && python3 telegram_bot.py"
+    volumes:
+      - .:/app
+      - ./.env:/app/telegram_bot/.env
+    networks:
+      - mynetwork
+    depends_on:
+      - api
+
 
 networks:
   mynetwork:
