@@ -4,7 +4,7 @@ BEGIN;
 
 
 CREATE SEQUENCE subscribe_user_id_seq;
-CREATE SEQUENCE bulletinrawid_seq;
+CREATE SEQUENCE bulletinraw_id_seq;
 CREATE SEQUENCE topics_topicid_seq;
 
 CREATE TABLE IF NOT EXISTS public.account
