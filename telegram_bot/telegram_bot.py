@@ -16,74 +16,37 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
-#####PostgreSQL setup
-db_config = {
-    "database": os.getenv("POSTGRES_DB"),
-    "user": os.getenv("POSTGRES_USER"),
-    "password": os.getenv("POSTGRES_PASSWORD"),
-    "host": "MyPostgres",
-    "port": "5432"
-}
-connection = psycopg2.connect(**db_config)
-cursor = connection.cursor() #Init. connection
+API_server = "http://API:8000"
+register_user = API_server + "/bot/register_user"
+delete_subscription = API_server + "/bot/delete_subscription"
+add_subscription = API_server + "/bot/add_subscription"
+get_labelid = API_server + "/bot/get_labelid"
+list_subscription = API_server + "/bot/list_subscription"
+get_user = API_server + "/bot/get_user"
 
 # Check if the data already exists
 
 insert_query = {}  # Define the insert_query variable
-insert_query["updateUser"] = sql.SQL("""
-    SELECT chatid FROM account
-""")
-cursor.execute(insert_query["updateUser"])
-user_json = cursor.fetchall()
+url = get_user
+user_json = json.loads(requests.post(url).text)
 user = [int(x[0]) for x in user_json]
 
 async def UpdateUser(context: ContextTypes.DEFAULT_TYPE) -> None:
-    cursor.execute(insert_query["updateUser"])
-    user_json = cursor.fetchall()
+    url = get_user
+    user_json = requests.post(url)
     user = [int(x[0]) for x in user_json]
 
-insert_query["addUser"] = sql.SQL("""
-    INSERT INTO account (name, chatid)
-    VALUES (%s, %s)
-""")
-insert_query["getTopic"] = sql.SQL("""
-    SELECT topicname FROM subscription s
-    INNER JOIN topics ON topics.topicid = s.topicid 
-    WHERE s.chatid = %s AND s.status = 'Subscribed';
-""")
-insert_query["checkTopicExist"] = sql.SQL("""
-    SELECT topicid
-    FROM topics
-    WHERE topicname = %s;
-""")
-insert_query["checkSubscription"] = sql.SQL("""
-    SELECT s.topicid FROM public.subscription s 
-    JOIN public.account a ON s.userid = a.userid 
-    WHERE a.chatid = %s AND s.topicid = %s;
-""")
-# insert_query["Subscription"] = sql.SQL("""
-#     INSERT INTO public.subscription (chatid, topicid, status, notificationpreference)
-#     SELECT %s, %s, 'Subscribed', 'telegram'
-#     ON CONFLICT (chatid, topicid) DO NOTHING;
-# """)
-insert_query["Subscription"] = sql.SQL("""
-    INSERT INTO public.subscription (chatid, topicid, status, notificationpreference)
-    VALUES (%s, %s, 'Subscribed', 'telegram')
-    ON CONFLICT (chatid, topicid) DO UPDATE 
-    SET status = 'Subscribed'
-    WHERE public.subscription.status = 'Unsubscribed'
-    RETURNING *;
-""")
-insert_query["unSubscription"] = sql.SQL("""
-    UPDATE public.subscription
-    SET status = 'Unsubscribed'
-    WHERE chatid = %s AND topicid = %s;
-""")
 
 async def AddUser(user_name, user_ids) -> None:
     # Create the INSERT query
-    cursor.execute(insert_query["addUser"], (user_name, user_ids))
-    connection.commit()
+    url = register_user
+    data = {
+        "name": str(user_name),
+        "chatid": (user_ids)
+    }
+    response = requests.post(url, json=data)
+    return response.text
+
 
         
 #Welcome
@@ -95,8 +58,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     #context.bot_data.setdefault("user_ids", set()).add(chat.id)
     #user_ids = ", ".join(str(uid) for uid in context.bot_data.setdefault("user_ids", set()))
     if (chat_id not in user): #why it is not str?
-        await AddUser(user_name, chat_id)
-        await update.message.reply_text("New User")
+        await update.message.reply_text(AddUser(user_name, chat_id))
     await update.message.reply_text("Hi! 歡迎使用")
 
 #search command
@@ -108,20 +70,32 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_message.chat_id
     try:
-        topicname = update.message.text.split(' ')[1:][0]#chinese not work
+        label_name = update.message.text.split(' ')[1:][0]#chinese not work
     except:
         await update.effective_message.reply_text("Please enter the topic name")
         return
-    cursor.execute(insert_query["checkTopicExist"], (topicname,))
-    connection.commit()
-    topicid = cursor.fetchone()
-    if (topicid == None):
+    
+
+
+    url = get_labelid
+    data = {
+        "labelname": label_name
+    }
+    response = requests.post(url, json=data)
+    labelid = response.text[1:-1]
+
+    if (labelid == "ul"):#bcs null[1] -> [u]
         await update.effective_message.reply_text("topic not exist")
     else:
-        print(chat_id, topicid)
-        cursor.execute(insert_query["Subscription"], (chat_id, topicid))
-        connection.commit()
+        url = add_subscription
+        data = {
+            "chatid": str(chat_id),
+            "labelid": str(labelid)
+        }
+        response = requests.post(url, json=data)
         await update.effective_message.reply_text("Subscribe topic successfully")
+
+
 
     
 
@@ -129,23 +103,40 @@ async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_message.chat_id
     try:
-        topicname = update.message.text.split(' ')[1:][0]
+        label_name = update.message.text.split(' ')[1:][0]
     except:
         await update.effective_message.reply_text("Please enter the topic name")
         return
-    cursor.execute(insert_query["checkTopicExist"], (topicname,))
-    connection.commit()
-    topicid = cursor.fetchall()[0][0]
-    cursor.execute(insert_query["unSubscription"], (chat_id, topicid))
-    connection.commit()
-    await update.effective_message.reply_text("unsubscribe")
+    url = get_labelid
+    data = {
+        "labelname": label_name
+    }
+    response = requests.post(url, json=data)
+    labelid = response.text[1:-1]
+
+    if (labelid == "ul"):#bcs null[1] -> [u]
+        await update.effective_message.reply_text("topic not exist")
+    else:
+        url = delete_subscription
+        data = {
+            "chatid": str(chat_id),
+            "labelid": str(labelid)
+        }
+        response = requests.post(url, json=data)
+        await update.effective_message.reply_text(response.text)
+
+   
 
 #List command
 async def list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_message.chat_id
-    cursor.execute(insert_query["getTopic"], (chat_id,))
-    connection.commit()
-    await update.effective_message.reply_text(cursor.fetchall())
+
+    url = list_subscription
+    data = {
+        "chatid": str(chat_id),
+    }
+    response = requests.post(url, json=data)
+    await update.effective_message.reply_text(response.text)
 
 #Init message
 async def post_init(application: Application) -> None:
