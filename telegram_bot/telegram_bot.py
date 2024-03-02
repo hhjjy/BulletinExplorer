@@ -3,13 +3,10 @@ import time
 from datetime import datetime
 import os
 from urllib.parse import urlparse
-import psycopg2
 import json
-import concurrent.futures
 from telegram.ext import CommandHandler, CallbackQueryHandler, MessageHandler, Updater, Application, ContextTypes, filters, ChatMemberHandler
 from telegram import  Chat, ChatMember, ChatMemberUpdated, ForceReply, Update, Bot
 import telegram
-from psycopg2 import sql, extras
 import copy
 from decimal import Decimal
 from dotenv import load_dotenv
@@ -24,17 +21,11 @@ get_labelid = API_server + "/bot/get_labelid"
 list_subscription = API_server + "/bot/list_subscription"
 get_user = API_server + "/bot/get_user"
 
-# Check if the data already exists
 
-insert_query = {}  # Define the insert_query variable
-try:
-    url = get_user
-    user_json = json.loads(requests.post(url).text)
-    user = [int(x[0]) for x in user_json]
-except:
-    user = []
+user = []
 
 async def UpdateUser(context: ContextTypes.DEFAULT_TYPE) -> None:
+    global user  
     url = get_user
     user_json = json.loads(requests.post(url).text)
     user = [int(x[0]) for x in user_json]
@@ -45,7 +36,7 @@ async def AddUser(user_name, user_ids) -> None:
     url = register_user
     data = {
         "name": str(user_name),
-        "chatid": (user_ids)
+        "chatid": str(user_ids)
     }
     response = requests.post(url, json=data)
     return response.text
@@ -58,11 +49,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_message.chat_id
     user_name = update.effective_user.full_name
     chat = update.effective_chat
-    #context.bot_data.setdefault("user_ids", set()).add(chat.id)
-    #user_ids = ", ".join(str(uid) for uid in context.bot_data.setdefault("user_ids", set()))
     if (chat_id not in user): #why it is not str?
-        await update.message.reply_text(AddUser(user_name, chat_id))
-    await update.message.reply_text("Hi! 歡迎使用")
+        await update.message.reply_text("Hi! 歡迎使用本機器人")
+        AddUser(user_name, chat_id)
+        await update.message.reply_text("指令如下：\n/search [標籤名稱] - 搜尋標籤\n/subscribe [標籤名稱] - 訂閱標籤\n/unsubscribe [標籤名稱] - 取消訂閱標籤\n/list - 顯示正在追蹤的標籤")
+    await update.message.reply_text("你已經註冊過了")
 
 #search command
 async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -78,8 +69,6 @@ async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.effective_message.reply_text("Please enter the topic name")
         return
     
-
-
     url = get_labelid
     data = {
         "labelname": label_name
@@ -98,9 +87,6 @@ async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         response = requests.post(url, json=data)
         await update.effective_message.reply_text("Subscribe topic successfully")
 
-
-
-    
 
 #unsubscribe command
 async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -154,7 +140,7 @@ async def post_stop(application: Application) -> None:
 def main() -> None:
     application = Application.builder().token(TOKEN).post_init(post_init).post_stop(post_stop).build()
     job_queue = application.job_queue
-    job_minute = job_queue.run_repeating(UpdateUser, interval=120, first=0)
+    job_minute = job_queue.run_repeating(UpdateUser, interval=30, first=3)
 
 
     application.add_handler(CommandHandler(["start", "help"], start))
