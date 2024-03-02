@@ -150,7 +150,7 @@ async def get_data(category: Optional[str] = None, start_date:Optional[str]= Non
         raw_data = fetch_data(category, numbers,start_date,end_date)  # ((id, publisher,),....)
         data = [
             Post(
-                id=row[0],
+                rawid=row[0],
                 publisher=row[1],
                 title=row[2],
                 url=row[3],
