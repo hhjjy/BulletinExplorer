@@ -22,17 +22,19 @@ services:
   telegram_bot:
     image: python:3.8.13
     container_name: TelegramBot
-    command: bash -c "cd /app/telegram_bot && pip install pipenv && pipenv install -r requirements.txt && pipenv run python3 telegram_bot.py"
+    command: bash -c "cd /app/telegram_bot && pip install -r requirements.txt && python3 telegram_bot.py"
     volumes:
       - .:/app
       - ./.env:/app/telegram_bot/.env
     networks:
       - mynetwork
+    depends_on:
+      - api
 
   api:
     image: python:3.12.2
     container_name: API
-    command: bash -c "cd /app/api && pip install uvicorn psycopg2-binary fastapi python-dotenv && pip install -r requirements.txt && uvicorn api:app --reload --host 0.0.0.0 --port 8000"
+    command: bash -c "cd /app/api && pip install -r requirements.txt && uvicorn api:app --reload --host 0.0.0.0 --port 8000"
 
 
     volumes:
@@ -43,6 +45,8 @@ services:
       - "8000:8000"
     networks:
       - mynetwork
+    depends_on:
+      - postgres
 
 networks:
   mynetwork:

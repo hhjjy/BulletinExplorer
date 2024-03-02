@@ -27,13 +27,16 @@ get_user = API_server + "/bot/get_user"
 # Check if the data already exists
 
 insert_query = {}  # Define the insert_query variable
-url = get_user
-user_json = json.loads(requests.post(url).text)
-user = [int(x[0]) for x in user_json]
+try:
+    url = get_user
+    user_json = json.loads(requests.post(url).text)
+    user = [int(x[0]) for x in user_json]
+except:
+    user = []
 
 async def UpdateUser(context: ContextTypes.DEFAULT_TYPE) -> None:
     url = get_user
-    user_json = requests.post(url)
+    user_json = json.loads(requests.post(url).text)
     user = [int(x[0]) for x in user_json]
 
 
