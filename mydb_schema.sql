@@ -3,6 +3,10 @@
 BEGIN;
 
 
+CREATE SEQUENCE subscribe_user_id_seq;
+CREATE SEQUENCE bulletinrawid_seq;
+CREATE SEQUENCE topics_topicid_seq;
+
 CREATE TABLE IF NOT EXISTS public.account
 (
     userid integer NOT NULL DEFAULT nextval('subscribe_user_id_seq'::regclass),
