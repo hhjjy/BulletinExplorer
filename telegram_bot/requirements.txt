@@ -3,3 +3,4 @@ python-dotenv==1.0.1
 python-telegram-bot==20.8
 Requests==2.31.0
 python-telegram-bot[job-queue]
+psycopg2_binary==2.9.9
