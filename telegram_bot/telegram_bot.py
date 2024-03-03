@@ -55,6 +55,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("指令如下：\n/search [標籤名稱] - 搜尋標籤\n/subscribe [標籤名稱] - 訂閱標籤\n/unsubscribe [標籤名稱] - 取消訂閱標籤\n/list - 顯示正在追蹤的標籤")
     await update.message.reply_text("你已經註冊過了")
 
+#Welcome
+async def whereami(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = update.effective_message.chat_id
+    my_ip = requests.get("https://ifconfig.me/").text
+    await update.effective_message.reply_text(my_ip)
+
 #search command
 async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_message.chat_id
@@ -146,13 +152,13 @@ def main() -> None:
     application.add_handler(CommandHandler(["start", "help"], start))
     application.add_handler(CommandHandler("help", help))
     application.add_handler(CommandHandler("search", search))
+    application.add_handler(CommandHandler("whereami", whereami))
     application.add_handler(CommandHandler("subscribe", subscribe))
     application.add_handler(CommandHandler("unsubscribe", unsubscribe))
     application.add_handler(CommandHandler("list", list))
 
     # Run the bot until the user presses Ctrl-C
     application.run_polling(allowed_updates=Update.ALL_TYPES)
-    connection.close()
 if __name__ == "__main__":
     main()
 
