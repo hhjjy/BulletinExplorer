@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     # 3. test case for label  
 
-    # 4. test case for subscription 
+    # 4. test case for subscription S
 
     # 5. test case for bulletinraw 
 
