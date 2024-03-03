@@ -64,6 +64,7 @@ class PostIn(BaseModel):
     title: str
     url: str
     content: str
+
 class NewUser(BaseModel):
     name: str
     chatid: str
@@ -178,11 +179,10 @@ async def get_data(category: Optional[str] = None, start_date:Optional[str]= Non
             content={"error": str(Error),"detail":error_traceback},
         )
 
-@app.post("/api/savedata")
+@app.post("/scraper/save_bulletin")
 async def save_data(post: PostIn):
     logger.info(f"Saving post {post} to database")
     try:
-
         connection = psycopg2.connect(**db_config)
         cursor = connection.cursor()
         # 檢查數據是否已存在
@@ -190,7 +190,6 @@ async def save_data(post: PostIn):
             SELECT * FROM bulletinraw
             WHERE publisher = %s AND title = %s
         """, (post.publisher, post.title))
-
         if cursor.fetchone() is None:
             # 如果數據不存在，則插入新數據
             cursor.execute("""

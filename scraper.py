@@ -172,8 +172,14 @@ def scrape():
     data = Scrape.scrape()
     SaveToDB(data)
 
-   
-
+def get_test_case():
+    Scrape = ScraperFactory.get_scraper(NTUST_INSIDE_URL)
+    data = Scrape.scrape()
+    return data
 
 if __name__ == '__main__':
-    scrape() 
+    Scrape = ScraperFactory.get_scraper(NTUST_INSIDE_URL)
+    data = Scrape.scrape()
+    for row in data:
+        print(row)
+    # SaveToDB(data)
