@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS public.bulletinprocessed
     rawid integer,
     labelid integer,
     processedtime timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    sentstatus boolean NOT NULL DEFAULT false,
     CONSTRAINT bulletinprocessed_pkey PRIMARY KEY (id)
 );
 
