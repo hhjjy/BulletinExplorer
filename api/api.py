@@ -76,6 +76,12 @@ class UserId(BaseModel):
     chatid: str
 class ListSubTable(BaseModel):
     labelname: str
+class NewDataReturn(BaseModel):
+    chatid: int
+    publisher: str
+    title: str
+    url: str
+    labelname: str
 
 # SELECT *,
 #      (CASE WHEN publisher LIKE '%台%' THEN 1 ELSE 0 END +
@@ -392,6 +398,47 @@ async def get_user():
             content={"error": str(Error),"detail":error_traceback},
         )
 
+
+@app.post("/bot/get_newdata", response_model=List[NewDataReturn])
+async def get_newdata():
+    try:
+        logger.info(f"Fetching Unsent Data")
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+        # 檢查數據是否已存在
+        cursor.execute("""
+            SELECT DISTINCT ON (s.chatid, br.rawid) s.chatid, br.publisher, br.title, br.url, l.labelname, br.rawid
+            FROM subscription s
+            JOIN bulletinprocessed bp ON s.labelid = bp.labelid
+            JOIN bulletinraw br ON bp.rawid = br.rawid
+            JOIN label l ON s.labelid = l.labelid
+            WHERE bp.sentstatus = 'f' AND s.status = 'Subscribed';
+
+        """, )
+        records = cursor.fetchall()
+        data = [
+            NewDataReturn(
+                chatid=row[0],
+                publisher=row[1],
+                title=row[2],
+                url=row[3],
+                labelname=row[4],
+            )
+            for row in records
+        ]
+        return data
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
 
 @app.post("/api/start_scraper")
 async def start_scraper():
