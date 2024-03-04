@@ -24,25 +24,13 @@ get_user = API_server + "/bot/get_user"
 
 user = []
 
-async def UpdateUser(context: ContextTypes.DEFAULT_TYPE) -> None:
+async def update_user(context: ContextTypes.DEFAULT_TYPE) -> None:
     global user  
     url = get_user
     user_json = json.loads(requests.post(url).text)
     user = [int(x[0]) for x in user_json]
 
 
-async def AddUser(user_name, user_ids) -> None:
-    # Create the INSERT query
-    url = register_user
-    data = {
-        "name": str(user_name),
-        "chatid": str(user_ids)
-    }
-    response = requests.post(url, json=data)
-    return response.text
-
-
-        
 #Welcome
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Sends explanation on how to use the bot."""
@@ -51,11 +39,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat = update.effective_chat
     if (chat_id not in user): #why it is not str?
         await update.message.reply_text("Hi! 歡迎使用本機器人")
-        AddUser(user_name, chat_id)
+        url = register_user
+        data = {
+            "name": str(user_name),
+            "chatid": str(user_ids)
+        }
+        response = requests.post(url, json=data)
         await update.message.reply_text("指令如下：\n/search [標籤名稱] - 搜尋標籤\n/subscribe [標籤名稱] - 訂閱標籤\n/unsubscribe [標籤名稱] - 取消訂閱標籤\n/list - 顯示正在追蹤的標籤")
     await update.message.reply_text("你已經註冊過了")
 
-#Welcome
+#check where do bot run(for debug)
 async def whereami(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_message.chat_id
     my_ip = requests.get("https://ifconfig.me/").text
@@ -122,7 +115,7 @@ async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
    
 
-#List command
+#List all subscribe command
 async def list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_message.chat_id
 
@@ -133,7 +126,7 @@ async def list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     response = requests.post(url, json=data)
     await update.effective_message.reply_text(response.text)
 
-#Init message
+#boot message & set instruction
 async def post_init(application: Application) -> None:
     await application.bot.set_my_commands([('start', '開始使用'),('list', '顯示正在追蹤的標籤')])
     #await application.bot.send_message(str(user[0][0]), "系統啟動")
@@ -146,7 +139,7 @@ async def post_stop(application: Application) -> None:
 def main() -> None:
     application = Application.builder().token(TOKEN).post_init(post_init).post_stop(post_stop).build()
     job_queue = application.job_queue
-    job_minute = job_queue.run_repeating(UpdateUser, interval=30, first=3)
+    job_minute = job_queue.run_repeating(update_user, interval=30, first=3)
 
 
     application.add_handler(CommandHandler(["start", "help"], start))
