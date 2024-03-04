@@ -246,10 +246,10 @@ async def register_user(post: NewUser):
             """, (post.name, post.chatid))
             connection.commit()
             logger.info(f"Add user Done")
-            return {"message": "Welcome New User"}
+            return {f"Welcome New User"}
         else:
             logger.info(f"User already exists. No action taken.")
-            return {"message": "User already exists. No action taken."}
+            return {f"User already exists. No action taken."}
 
     except Exception as Error:
         error_message = "Error occurred: {}".format(str(Error))
@@ -278,7 +278,7 @@ async def delete_subscription(post: Subribe):
         """, (post.chatid, post.labelid))
         connection.commit()
         logger.info(f"{post.chatid} Unsubscribe {post.labelid} Done")
-        return {"message": "Unsubscribe successfully"}
+        return {f"Unsubscribe successfully"}
 
     except Exception as Error:
         error_message = "Error occurred: {}".format(str(Error))
@@ -310,7 +310,8 @@ async def add_subscription(post: Subribe):
         """, (post.chatid, post.labelid))
         connection.commit()
         logger.info(f"{post.chatid} Subscribe {post.labelid} Done")
-        return {"message": "Subscribe successfully"}
+        return {f"Subscribe successfully"}
+    
 
     except Exception as Error:
         error_message = "Error occurred: {}".format(str(Error))
@@ -318,7 +319,7 @@ async def add_subscription(post: Subribe):
         logger.error("%s\n%s", error_message, error_traceback)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"error": str(Error),"detail":error_traceback},
+            content={"發生錯誤"},
         )
     finally:
         if connection:
@@ -426,6 +427,14 @@ async def get_newdata():
             )
             for row in records
         ]
+
+        cursor.execute("""
+            UPDATE bulletinprocessed
+            SET sentstatus = 't'
+            WHERE sentstatus = 'f';
+        """, )
+        connection.commit()
+        logger.info(f"Set all `sentstatus` to True")
         return data
     except Exception as Error:
         error_message = "Error occurred: {}".format(str(Error))
