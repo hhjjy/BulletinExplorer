@@ -20,9 +20,3 @@ if __name__ == "__main__":
     # 5. test case for bulletinraw 
 
     # 6. test case for test 
-
-
-
-
-
-        
