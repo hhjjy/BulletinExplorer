@@ -35,7 +35,17 @@ CREATE TABLE IF NOT EXISTS public.bulletinraw
     url character varying(255) COLLATE pg_catalog."default",
     content text COLLATE pg_catalog."default",
     addtime timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    processstatus boolean DEFAULT false,
     CONSTRAINT bulletinraw_pkey PRIMARY KEY (rawid)
+);
+
+CREATE TABLE IF NOT EXISTS public.coordinates
+(
+    id serial NOT NULL,
+    function character varying(30) COLLATE pg_catalog."default",
+    start integer NOT NULL,
+    finish boolean NOT NULL DEFAULT false,
+    addtime timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS public.label
@@ -57,14 +67,6 @@ CREATE TABLE IF NOT EXISTS public.subscription
     joindate timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT subscription_pkey PRIMARY KEY (subscriptionid),
     CONSTRAINT unique_subscription_user_topic UNIQUE (chatid, labelid)
-);
-
-CREATE TABLE IF NOT EXISTS public.test
-(
-    id serial NOT NULL,
-    title character varying(255) COLLATE pg_catalog."default" NOT NULL,
-    addtime timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT test_pkey PRIMARY KEY (id)
 );
 
 ALTER TABLE IF EXISTS public.bulletinprocessed
