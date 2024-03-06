@@ -83,41 +83,50 @@ class NewDataReturn(BaseModel):
     title: str
     url: str
     labelname: str
-
-# SELECT *,
-#      (CASE WHEN publisher LIKE '%台%' THEN 1 ELSE 0 END +
-#       CASE WHEN publisher LIKE '%網%' THEN 1 ELSE 0 END) AS Score
-# FROM public.bulletinraw
-# WHERE (addtime >= '2023-01-01' AND addtime <= '2024-01-21')
-# and (publisher LIKE '%台%' OR publisher LIKE '%網%')
-# ORDER BY Score DESC, addtime DESC, id ASC;
-# 輸入台網
+# 取得原始公告
+class RequestRawData(BaseModel):
+    publisher: Optional[str] = None
+    keywords: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    numbers: int = 20
 
 # 日期範圍調整
 def adjust_date_range(start_date_str, end_date_str):
-    logger.info(f"input {start_date_str}~{end_date_str}")
-    # 將字符串轉換為 datetime 對象
-    start_date_o = datetime.strptime(start_date_str, "%Y-%m-%d")
-    end_date_o = datetime.strptime(end_date_str, "%Y-%m-%d")
-    # 將結束日期增加一天
-    end_date_o += timedelta(days=1)
-    # 如果需要，將 datetime 對象轉換回字符串
-    end_date_str = end_date_o.strftime("%Y-%m-%d")
-    logger.info(f"return {start_date_str}~{end_date_str}")
-    return start_date_str, end_date_str
+    try:
+        if start_date_str and end_date_str:  # 確保日期不為空
+            logger.info(f"input {start_date_str}~{end_date_str}")
+            # 將字符串轉換為 datetime 對象
+            start_date_o = datetime.strptime(start_date_str, "%Y-%m-%d")
+            end_date_o = datetime.strptime(end_date_str, "%Y-%m-%d")
+            # 將結束日期增加一天
+            end_date_o += timedelta(days=1)
+            # 如果需要，將 datetime 對象轉換回字符串
+            end_date_str = end_date_o.strftime("%Y-%m-%d")
+            logger.info(f"return {start_date_str}~{end_date_str}")
+            return start_date_str, end_date_str
+        else:
+            logger.info("Empty date strings provided")
+            return None, None
+    except ValueError as e:
+        logger.error(f"Error in adjusting date range: {e}")
+        raise ValueError("Invalid date format provided")
 
-def create_sql_query(keywords, number_data, start_date, end_date):
+def create_sql_query(publisher, keywords, number_data, start_date, end_date):
     case_statements = []
     where_conditions = []
     params = []
+
     if start_date is not None and end_date is not None: # 調整時間
         start_date, end_date = adjust_date_range(start_date, end_date)
-    if keywords: # 有關鍵字
-        for keyword in keywords:
-            param = f"%{keyword}%"
+
+    if publisher: # 搜尋發布者關鍵字
+        for publish in publisher:
+            param = f"%{publish}%"
             case_statements.append(f"(CASE WHEN publisher LIKE %s THEN 1 ELSE 0 END)")
             where_conditions.append(f"publisher LIKE %s")
             params.append(param)
+
         params.extend(params) # 參數再重複一次,原本是[台,網],重複一次就變成 [台,網,台,網] 為了後面SQL搜索時運用到避免遇到SQL注入攻擊
         params.extend([number_data] if start_date is None or end_date is None  else [start_date, end_date, number_data])
         case_sql = " + ".join(case_statements)
@@ -132,7 +141,25 @@ def create_sql_query(keywords, number_data, start_date, end_date):
             ORDER BY Score DESC, addtime DESC
             LIMIT %s;
         """ 
-    else: # 沒有關鍵字
+        
+    elif keywords: # 搜尋內文關鍵字
+        for keyword in keywords:
+            param = f"%{keyword}%"
+            where_conditions.append(f"content LIKE %s")
+            params.append(param)
+
+        params.extend([number_data] if start_date is None or end_date is None  else [start_date, end_date, number_data])
+        where_sql = " OR ".join(where_conditions)
+        where_date_sql = "" if start_date is None or end_date is None else f"AND ( addtime >= %s AND addtime < %s)"
+        
+        sql_query = f"""
+            SELECT * FROM bulletinraw
+            WHERE ({where_sql}) {where_date_sql}
+            ORDER BY addtime DESC
+            LIMIT %s;
+        """
+
+    else: # 兩者都沒有
         where_date_sql = "" if start_date is None or end_date is None else f"WHERE ( addtime >= %s AND addtime < %s)"
         sql_query = f"""
             SELECT * FROM bulletinraw
@@ -141,19 +168,18 @@ def create_sql_query(keywords, number_data, start_date, end_date):
             LIMIT %s;
         """
         params.extend([number_data] if start_date is None or end_date is None  else  [start_date, end_date, number_data] )
+    
     logger.debug(f"sql_query:{sql_query}, params:{params}")
     return sql_query, params
 
 # 取得最新的幾筆資料
 # 取得的格式如下 ((rawid, publisher, title, url, content, addtime),()...,)
-def fetch_data(keywords: str, numbers: int, start_date: str, end_date: str):
-    logger.debug(f"keywords:{keywords}, numbers:{numbers}, start_date:{start_date}, end_date:{end_date}")
+def fetch_data(publisher: str, keywords: str, numbers: int, start_date: str, end_date: str):
+    logger.debug(f"publisher:{publisher}, keywords:{keywords}, numbers:{numbers}, start_date:{start_date}, end_date:{end_date}")
     connection = psycopg2.connect(**db_config)
     cursor = connection.cursor()
-    SQL_query ,params = create_sql_query(keywords, numbers, start_date, end_date)
-    query = sql.SQL(
-        SQL_query
-    )
+    SQL_query ,params = create_sql_query(publisher, keywords, numbers, start_date, end_date)
+    query = sql.SQL(SQL_query)
     cursor.execute(query, params)
     records = cursor.fetchall()
     if connection:
@@ -164,11 +190,18 @@ def fetch_data(keywords: str, numbers: int, start_date: str, end_date: str):
 
 # 測試過中文的參數進入fastapi會自動處理不須轉換
 # 取得原始公告資料  
-@app.get("/frontend/get_bulletin", response_model=List[Post])
-async def get_bulletin(keywords: Optional[str]=None, start_date: Optional[str]=None, end_date:Optional[str]=None, numbers: int=Query(default=20, le=200)):
+@app.post("/frontend/get_bulletin", response_model=List[Post])
+async def get_bulletin(request_raw_data: RequestRawData):
     try:
-        logger.info(f"Fetching {numbers} latest posts from {keywords}, Date:{start_date}~{end_date}")
-        raw_data = fetch_data(keywords, numbers, start_date, end_date)  # ((id, publisher,),....)
+        publisher = request_raw_data.publisher
+        keywords = request_raw_data.keywords
+        start_date = request_raw_data.start_date
+        end_date = request_raw_data.end_date
+        numbers = request_raw_data.numbers
+        search_type = "ALL" if not keywords and not publisher else ("keywords" if keywords else "publisher")
+        logger.info(f"Fetching {numbers} latest posts with {search_type} from Date:{start_date}~{end_date}")
+
+        raw_data = fetch_data(publisher, keywords, numbers, start_date, end_date)  # ((id, publisher,),....)
         data = [
             Post(
                 rawid = row[0],
@@ -271,12 +304,12 @@ async def modify_bulletin(rawid: int, post: PostIn):
             connection.close()
 
 @app.post("/scraper/save_bulletin")
-async def save_data(post: PostIn):
+async def save_bulletin(post: PostIn):
     logger.info(f"Saving post {post} to database")
     try:
         connection = psycopg2.connect(**db_config)
         cursor = connection.cursor()
-        # 檢查數據是否已存在
+        # 檢查數據是否已存在你好
         cursor.execute("""
             SELECT * FROM bulletinraw
             WHERE publisher = %s AND title = %s
@@ -546,8 +579,6 @@ async def start_scraper():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"error": str(Error),"detail":error_traceback},
         )
-
-
 
 if __name__ == "__main__":
  
