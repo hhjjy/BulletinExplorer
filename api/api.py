@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+import scraper
 load_dotenv()
 
 
@@ -589,8 +590,8 @@ async def list_event():
 async def start_scraper():
     try:
         logger.info(f"Start Scraper")
-        os.system("python3 ../scraper.py")  # call scraper
-
+        #os.system("python3 ../scraper.py")  # call scraper
+        scraper.scrape()
 
         return "Done"
     except Exception as Error:

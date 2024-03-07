@@ -2,18 +2,13 @@ from abc import ABC, abstractmethod
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
-import psycopg2
-from psycopg2 import sql
 from pprint import pprint
+import json
 
 
-db_config = {
-    "database": "mydb",
-    "user": "admin",
-    "password": "12345",
-    "host": "localhost",
-    "port": "65432"
-}
+API_server = "http://localhost:8000"
+save_bulletin = API_server + "/scraper/save_bulletin"
+delete_event = API_server + "/scraper/delete_event"
 
 NTUST_LANG_URL = "https://lc.ntust.edu.tw/p/403-1070-1053-1.php?Lang=zh-tw"
 NTUST_INSIDE_URL = "https://bulletin.ntust.edu.tw/p/403-1045-1391-1.php?Lang=zh-tw"
@@ -69,7 +64,7 @@ class NTUSTBulletinScraper(Scraper):
                 paragraphs = soup.find_all("p")
                 for p in paragraphs:
                     content += p.get_text(strip=True)
-            yield {'publisher':publisher,'title':title,'url':url,'content':content}
+            yield {"publisher":publisher,"title":title,"url":url,"content":content}
 
 # 台科大語言中心爬蟲
 class NTUSTLanguageCenterScraper(Scraper):
@@ -94,7 +89,7 @@ class NTUSTLanguageCenterScraper(Scraper):
                 p_tags = div.find_all('p')
                 for p in p_tags:
                     content += p.get_text(strip=True)
-            yield {'publisher':publisher,'title':title,'url':url,'content':content}    
+            yield {"publisher":publisher,"title":title,"url":url,"content":content}  
 
 
 
@@ -113,73 +108,39 @@ class NTUSTMajorAnnouncementScraper(Scraper):
             title = t.get_text(strip=True)
             a_tag = t.find('a')
             url = a_tag.get('href')
-            yield {'publisher':publisher,'title':title,'url':url,'content':content}    
+            yield {"publisher":"publisher","title":title,"url":url,"content":content}  
 
-
-def SaveToDB(data):
-    connection = psycopg2.connect(**db_config)
-    cursor = connection.cursor()
+def SaveBulletin(data):
+    url = save_bulletin
     for row in data:
-        publisher = row.get('publisher')
-        title = row.get('title')
-        url = row.get('url')
-        content = row.get('content')
+        x = json.dumps(row, ensure_ascii=False).encode('utf-8')
+        print(x.decode('utf-8'))
+        r = requests.post(url, data=x)
+        print(r)
 
-        try:
-            # Check if the data already exists
-            select_query = sql.SQL("""
-                SELECT * FROM bulletinraw
-                WHERE publisher = %s AND title = %s
-            """)
-            cursor.execute(select_query, (publisher, title))
-
-            # Fetch the result
-            existing_data = cursor.fetchone()
-
-            if existing_data:
-                print("Data already exists in the database. Skipping insertion.")
-            else:
-                # Create the INSERT query
-                insert_query = sql.SQL("""
-                    INSERT INTO bulletinraw (publisher, title, url, content)
-                    VALUES (%s, %s, %s, %s)
-                """)
-
-                # Execute the query with data
-                cursor.execute(insert_query, (publisher, title, url, content))
-
-                # Commit the transaction
-                connection.commit()
-
-                print("Data inserted successfully!")
-
-        except (Exception, psycopg2.Error) as error:
-            print("Error while connecting to PostgreSQL:", error)
-
-    connection.close()
 
 def scrape():
     
     Scrape = ScraperFactory.get_scraper(NTUST_INSIDE_URL)
     data = Scrape.scrape()
-    SaveToDB(data)
+    SaveBulletin(data)
 
     Scrape = ScraperFactory.get_scraper(NTUST_LANG_URL)
     data = Scrape.scrape()
-    SaveToDB(data)
+    SaveBulletin(data)
 
     Scrape = ScraperFactory.get_scraper(NTUST_OUTSIDE_URL)
     data = Scrape.scrape()
-    SaveToDB(data)
-
-def get_test_case():
-    Scrape = ScraperFactory.get_scraper(NTUST_INSIDE_URL)
-    data = Scrape.scrape()
-    return data
+    SaveBulletin(data)
 
 if __name__ == '__main__':
-    Scrape = ScraperFactory.get_scraper(NTUST_INSIDE_URL)
-    data = Scrape.scrape()
-    for row in data:
-        print(row)
-    # SaveToDB(data)
+    # Scrape = ScraperFactory.get_scraper(NTUST_OUTSIDE_URL)
+    # data = Scrape.scrape()
+    # SaveBulletin(data)
+    scrape()
+    url = delete_event
+    data = {
+        "function": "scraper",
+        "status": "1"
+    }
+    response = requests.post(url, json=data)
