@@ -11,36 +11,11 @@ if not OPENAI_API_KEY:
     raise ValueError("请设置 OPENAI_API_KEY 环境变量。")
 logger = setup_logger("llm_service", log_level=logging.DEBUG)
 
-def llm_classify(title,content):
-    """
-    Args:
-        title (str): 標題
-        content (str): 內文
-    Return:
-        response(dict):回應的格式 
-    """
-    logger.info(f"input title:{title},content:{content}")
-
-    # 初始化模型
-    llm = ChatOpenAI(temperature=0.3, model_name="gpt-4-0613")
-    # chat_model = ChatOpenAI(openai_api_key=OPENAI_API_KEY)
-
-    # 创建提示模板
-    prompt = PromptTemplate.from_template(templates_classify)
-    # 使用提示模板与 LLM 交互
-    formated_prompt = prompt.format(title = title,content = content)
-    logger.info(f"formated_prompt:{formated_prompt}")
-    response = llm.invoke(formated_prompt)
-    logger.info(f"output:{response}")
-    tags_dict = get_dict_from_str(response)
-    return tags_dict
-
-
-
-
 class LLMService:
-    def __init__(self):
+    def __init__(self,api_endpoint):
         self.llm = ChatOpenAI(temperature=0.3, model_name="gpt-4-0613")
+        self.api_endpoint = api_endpoint
+
     async def classify_content_by_llm(self, title: str, content: str) -> dict:
         """異步分類內容並返回標籤字典"""
         logger.info(f"輸入標題: {title}, 內容: {content}")
@@ -83,28 +58,55 @@ class LLMService:
         return tags_dict
 
     async def classify_content_by_regex(self, title: str, content: str) -> dict:
-        pass
-    async def voting(self, llm1_labels, llm2_labels, llm3_labels):
-        # Placeholder for voting logic
-        pass
-    async def combine(self, regex_labels, voting_result):
-        # Placeholder for combining labels logic
-        pass
+        result = {'tags': []}
+
+        return result
+    def voting(self, llm1_labels, llm2_labels, llm3_labels) -> dict:
+        logger.info(f"輸入: {llm1_labels},{llm2_labels},{llm3_labels}")
+        # Initialize an empty dictionary to store the final result
+        result = {'tags': []}
+        # Initialize a list to collect all tags
+        all_tags = []
+        # Extend the all_tags list with tags from each label set
+        all_tags.extend(llm1_labels.get('tags', []))
+        all_tags.extend(llm2_labels.get('tags', []))
+        all_tags.extend(llm3_labels.get('tags', []))
+
+        # Use a set for unique tags and a dictionary to count occurrences
+        unique_tags = set(all_tags)
+        tag_counts = {tag: all_tags.count(tag) for tag in unique_tags}
+
+        # Determine which tags meet the voting criteria (appearing in at least two label sets)
+        agreed_tags = [tag for tag, count in tag_counts.items() if count >= 2 and tag!= "其他"]
+
+        # Handle special case for the tag "其他"
+        # If "其他" is the only tag or appears in all three label sets, include it in the result
+        if ("其他" in unique_tags and tag_counts["其他"] >= 2) or len(agreed_tags) == 0:
+            agreed_tags=["其他"]
+
+        result['tags'] = agreed_tags
+        logger.info(f"輸出: {result}")
+        return result
+
+    def combine(self, regex_labels, voting_result)->dict:
+        result = {'tags': []}
+        result['tags'] = regex_labels.get('tags', []) + voting_result.get('tags', [])
+        return result
+
     async def execute(self):
         # Fetch unprocessed bulletins
         bulletins_response = requests.post(f"{self.api_endpoint}/llm/get_unprocessed_bulletin")
         bulletins = bulletins_response.json()
-
         for bulletin in bulletins:
             rawid = bulletin['rawid']
             title = bulletin['title']
             content = bulletin['content']
 
             # Classify content using three different LLMs and perform voting
-            llm1_labels = await self.classify_content(title, content)
-            llm2_labels = await self.classify_content(title, content)
-            llm3_labels = await self.classify_content(title, content)
-            llm_voting_result = await self.voting(llm1_labels, llm2_labels, llm3_labels)
+            llm1_labels = await self.classify_content_by_llm(title, content)
+            llm2_labels = await self.classify_content_by_llm(title, content)
+            llm3_labels = await self.classify_content_by_llm(title, content)
+            llm_voting_result = self.voting(llm1_labels, llm2_labels, llm3_labels)
 
             # Classify content using regex
             labels_regex = await self.classify_content_by_regex(title, content)
@@ -114,23 +116,14 @@ class LLMService:
 
             # Post labels back to the API
             for tag in result_label['tags']:
-                label_response = requests.post(f"{self.api_endpoint}/llm/get_label_id", json={'tag': tag})
+                
+                label_response = await requests.post(f"{self.api_endpoint}/llm/get_label_id", json={'labelname': tag})
                 label_id = label_response.json()['labelid']
                 response_dict = {'rawid': rawid, 'labelid': label_id}
                 await requests.post(f"{self.api_endpoint}/llm/save_label", json=response_dict)
 
         # Report finishing
         requests.post(f"{self.api_endpoint}/llm/report_finishing")
-
-
-
-
-
-
-
-
-
-
 
     @staticmethod
     def extract_json_from_response(response: str) -> dict:
@@ -151,3 +144,15 @@ if __name__ == '__main__':
 
     # content='### 指令操作：\n\n#### 段落分割：\n- 段落1：【學務處生輔組】112-2新增【校外】、【自辦】獎助學金，詳見獎學金網頁/最新消息。\n- 段落2：© Copyright (c) NTUST 2020© 學務處生活輔導組電話：(02)2730-3760© 系統開發及維護：電子計算機中心\n\n#### 主旨分析：\n- 段落1主旨：學務處生輔組在112-2學期新增了校外和自辦的獎助學金，詳細信息可以在獎學金網頁的最新消息中查看。\n- 段落2主旨：版權所有，學務處生活輔導組的聯絡電話和系統開發及維護單位的信息。\n\n#### 摘要提取：\n- 段落1摘要：112-2學期新增校外和自辦的獎助學金，詳情請查看獎學金網頁的最新消息。\n- 段落2摘要：學務處生活輔導組的聯絡電話為(02)2730-3760，系統由電子計算機中心開發及維護。\n\n#### 標籤匹配：\n- 段落1標籤：學校舉辦活動\n- 段落2標籤：其他\n\n### 指令操作：\n\n#### 標籤合併：\n- 學校舉辦活動、其他\n\n#### JSON格式輸出：\n```json\n{\n    "tags": ["學校舉辦活動", "其他"]\n}\n```'
     # print(get_dict_from_str(content))
+    LLM = LLMService("127.0.0.1:8000")
+    
+    # a = {
+    #     "tags":["餐點"]
+    # }
+    # b = {
+    #     "tags":["餐點"]
+    # }
+    # c = {
+    #     "tags":["其他"]
+    # }
+    # print(LLM.voting(a,b,c))
