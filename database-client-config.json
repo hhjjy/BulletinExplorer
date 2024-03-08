@@ -1,0 +1,76 @@
+{
+  "database": {
+    "1709874594924": {
+      "host": "127.0.0.1",
+      "port": 65432,
+      "user": "admin",
+      "password": "12345",
+      "dbType": "PostgreSQL",
+      "database": "postgres",
+      "name": "BulletinDB",
+      "advance": {
+        "hideSystemSchema": true
+      },
+      "timezone": "+00:00",
+      "usingSSH": true,
+      "useSocksProxy": false,
+      "useHTTPProxy": false,
+      "ssh": {
+        "host": "34.125.200.253",
+        "port": 22,
+        "username": "leo",
+        "type": "password",
+        "privateKeyPath": "~/.ssh/id_rsa",
+        "serverType": "linux",
+        "connectTimeout": 5000,
+        "algorithms": {
+          "kex": [
+            "ecdh-sha2-nistp256",
+            "ecdh-sha2-nistp384",
+            "ecdh-sha2-nistp521",
+            "diffie-hellman-group-exchange-sha256",
+            "diffie-hellman-group14-sha256",
+            "diffie-hellman-group15-sha512",
+            "diffie-hellman-group16-sha512",
+            "diffie-hellman-group17-sha512",
+            "diffie-hellman-group18-sha512",
+            "diffie-hellman-group14-sha1",
+            "diffie-hellman-group-exchange-sha1"
+          ],
+          "cipher": [
+            "aes128-gcm@openssh.com",
+            "aes256-gcm@openssh.com",
+            "aes128-ctr",
+            "aes192-ctr",
+            "aes256-ctr"
+          ],
+          "serverHostKey": [
+            "ecdsa-sha2-nistp256",
+            "ecdsa-sha2-nistp384",
+            "ecdsa-sha2-nistp521",
+            "rsa-sha2-512",
+            "rsa-sha2-256",
+            "ssh-rsa",
+            "ssh-dss"
+          ]
+        },
+        "disableSFTP": false,
+        "pruneSFTPRoot": true,
+        "password": "mitlab"
+      },
+      "global": true,
+      "savePassword": "Forever",
+      "readonly": false,
+      "sort": 11,
+      "useSSL": false,
+      "fs": {
+        "showHidden": true
+      },
+      "key": "1709874594924",
+      "connectionKey": "database.connections",
+      "encrypt": false
+    }
+  },
+  "nosql": null,
+  "$schema": "https://dbclient-release.oss-cn-hongkong.aliyuncs.com/dbclient/schema_new.json"
+}
