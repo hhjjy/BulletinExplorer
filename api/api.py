@@ -18,6 +18,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+import subprocess
+import asyncio
 import scraper
 load_dotenv()
 
@@ -642,10 +644,19 @@ async def list_event():
 async def start_scraper():
     try:
         logger.info(f"Start Scraper")
-        #os.system("python3 ../scraper.py")  # call scraper
-        scraper.scrape()
 
-        return "Done"
+        process = await asyncio.create_subprocess_exec(
+            "python3", "scraper.py",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
+        if stdout:
+            logger.info(f"Scraper output: {stdout.decode()}")
+        if stderr:
+            logger.error(f"Scraper error: {stderr.decode()}")
+        return {"message": "Scraper started successfully."}
+
     except Exception as Error:
         error_message = "Error occurred: {}".format(str(Error))
         error_traceback = traceback.format_exc()
