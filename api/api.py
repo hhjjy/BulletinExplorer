@@ -84,6 +84,12 @@ class NewDataReturn(BaseModel):
     title: str
     url: str
     labelname: str
+class DataForLLM(BaseModel):
+    rawid: int
+    publisher: str
+    title: str
+    url: str
+    content: str
 class Coordinate(BaseModel):
     function: str
     status: str
@@ -190,6 +196,8 @@ async def get_data(category: Optional[str] = None, start_date:Optional[str]= Non
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"error": str(Error),"detail":error_traceback},
         )
+
+
 
 @app.post("/scraper/save_bulletin")
 async def save_data(post: PostIn):
@@ -453,6 +461,50 @@ async def get_newdata():
         if connection:
             cursor.close()
             connection.close()
+
+
+
+@app.post("/llm/get_unprocessed_data", response_model=List[DataForLLM])
+async def get_unprocessed_data():
+    try:
+        logger.info(f"Fetching Unprocess Data")
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+        # 檢查數據是否已存在
+        cursor.execute("""
+            SELECT br.rawid, br.publisher, br.title, br.url, br.content
+            FROM public.bulletinraw br
+            LEFT JOIN public.bulletinprocessed bp ON br.rawid = bp.rawid
+            WHERE bp.rawid IS NULL;
+        """, )
+        
+        records = cursor.fetchall()
+        data = [
+            DataForLLM(
+                rawid=row[0],
+                publisher=row[1],
+                title=row[2],
+                url=row[3],
+                content=row[4],
+            )
+            for row in records
+        ]
+
+        return data
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
+
+
 @app.post("/bot/start_event")
 async def start_event(post: Coordinate):
     logger.info(f"{post.function} is running {post.status}")
