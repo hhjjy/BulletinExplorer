@@ -646,7 +646,7 @@ async def start_scraper():
         logger.info(f"Start Scraper")
 
         process = await asyncio.create_subprocess_exec(
-            "python3", "scraper.py",
+            "python3", "-c", "from scraper import scrape; scrape()",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
@@ -655,7 +655,7 @@ async def start_scraper():
             logger.info(f"Scraper output: {stdout.decode()}")
         if stderr:
             logger.error(f"Scraper error: {stderr.decode()}")
-        return {"message": "Scraper started successfully."}
+        return {"message": "Scraper run finish."}
 
     except Exception as Error:
         error_message = "Error occurred: {}".format(str(Error))
