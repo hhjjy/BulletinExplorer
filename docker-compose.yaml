@@ -35,11 +35,11 @@ services:
 
   telegram_bot:
     image: python:3.8.13
-    container_name: TelegramBot
-    command: bash -c "cd /app/telegram_bot && pip install -r requirements.txt && python3 telegram_bot.py"
+    container_name: main-controller
+    command: bash -c "cd /app/main-controller && pip install -r requirements.txt && python3 main-controller.py"
     volumes:
       - .:/app
-      - ./.env:/app/telegram_bot/.env
+      - ./.env:/app/main-controller/.env
     networks:
       - mynetwork
     depends_on:

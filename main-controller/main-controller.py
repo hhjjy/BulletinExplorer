@@ -42,7 +42,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         url = register_user
         data = {
             "name": str(user_name),
-            "chatid": str(user_ids)
+            "chatid": str(chat_id)
         }
         response = requests.post(url, json=data)
         await update.message.reply_text("指令如下：\n/search [標籤名稱] - 搜尋標籤\n/subscribe [標籤名稱] - 訂閱標籤\n/unsubscribe [標籤名稱] - 取消訂閱標籤\n/list - 顯示正在追蹤的標籤")
