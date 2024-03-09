@@ -120,7 +120,7 @@ def SaveBulletin(data):
 
 
 def scrape():
-    
+    #should add running event
     Scrape = ScraperFactory.get_scraper(NTUST_INSIDE_URL)
     data = Scrape.scrape()
     SaveBulletin(data)
@@ -133,14 +133,15 @@ def scrape():
     data = Scrape.scrape()
     SaveBulletin(data)
 
-if __name__ == '__main__':
-    # Scrape = ScraperFactory.get_scraper(NTUST_OUTSIDE_URL)
-    # data = Scrape.scrape()
-    # SaveBulletin(data)
-    scrape()
     url = delete_event
     data = {
         "function": "scraper",
         "status": "1"
     }
     response = requests.post(url, json=data)
+
+if __name__ == '__main__':
+    # Scrape = ScraperFactory.get_scraper(NTUST_OUTSIDE_URL)
+    # data = Scrape.scrape()
+    # SaveBulletin(data)
+    scrape()
