@@ -18,6 +18,9 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+import subprocess
+import asyncio
+import scraper
 load_dotenv()
 
 # make sure you have run the following command before testing!
@@ -83,6 +86,17 @@ class NewDataReturn(BaseModel):
     title: str
     url: str
     labelname: str
+class DataForLLM(BaseModel):
+    rawid: int
+    publisher: str
+    title: str
+    url: str
+    content: str
+class Coordinate(BaseModel):
+    function: str
+    status: str
+class CheckCoordinate(BaseModel):
+    function: str
 # 取得原始公告
 class RequestRawData(BaseModel):
     publisher: Optional[str] = None
@@ -605,13 +619,199 @@ async def get_newdata():
             cursor.close()
             connection.close()
 
+
+
+@app.post("/llm/get_unprocessed_data", response_model=List[DataForLLM])
+async def get_unprocessed_data():
+    try:
+        logger.info(f"Fetching Unprocess Data")
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+        # 檢查數據是否已存在
+        cursor.execute("""
+            SELECT br.rawid, br.publisher, br.title, br.url, br.content
+            FROM public.bulletinraw br
+            LEFT JOIN public.bulletinprocessed bp ON br.rawid = bp.rawid
+            WHERE bp.rawid IS NULL;
+        """, )
+        
+        records = cursor.fetchall()
+        data = [
+            DataForLLM(
+                rawid=row[0],
+                publisher=row[1],
+                title=row[2],
+                url=row[3],
+                content=row[4],
+            )
+            for row in records
+        ]
+
+        return data
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
+
+
+@app.post("/bot/start_event")
+async def start_event(post: Coordinate):
+    logger.info(f"{post.function} is running {post.status}")
+    try:
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+        # 檢查數據是否已存在
+        cursor.execute("""
+            INSERT INTO public.coordinates (function, start)
+            VALUES (%s, %s);
+        """, (post.function, post.status))
+        connection.commit()
+        logger.info(f"{post.function} records {post.status} Done")
+        return {f"Start"}
+
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
+
+
+@app.post("/bot/delete_event")
+async def delete_event(post: Coordinate):
+    logger.info(f"{post.function} is deleting")
+    try:
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+        # 檢查數據是否已存在
+
+            # INSERT INTO public.coordinates (function, start)
+            # VALUES (%s, %s);
+        cursor.execute("""
+                       
+            DO $$
+            BEGIN
+                -- Check if there is only one row meeting the conditions
+                IF (SELECT COUNT(*) FROM public.coordinates WHERE function = %s AND start = 1 AND finish = false) = 1 THEN
+                    -- Update the 'finish' column to 1 for the specified conditions
+                    UPDATE public.coordinates
+                    SET finish = true
+                    WHERE function = %s AND start = 1 AND finish = false;
+                ELSE
+                    -- Return an error message if there are not exactly one row matching the conditions
+                    RAISE EXCEPTION 'More than one row or no row found matching the specified conditions';
+                END IF;
+            END $$;
+        """, (post.function, post.status))
+        connection.commit()
+        logger.info(f"{post.function} Delete Done")
+        return {f"Delete {post.function}"}
+
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
+
+@app.post("/bot/get_even_status")
+async def get_even_status(post: CheckCoordinate):
+    logger.info(f"Checking can {post.function} start")
+    try:
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+        # 檢查數據是否已存在
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM public.coordinates
+            WHERE function = %s AND start = 1 AND finish = false;
+        """, (post.function,))
+        count = cursor.fetchone()
+        connection.commit()
+        logger.info(f"{count} of {post.function} can running")
+        return count
+
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
+
+
+@app.post("/bot/list_event")
+async def list_event():
+    logger.info(f"Listing all event not completed")
+    try:
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+        # 檢查數據是否已存在
+        cursor.execute("""
+            select * from coordinates
+            where start = '1' and finish = false;
+        """, )
+        connection.commit()
+        logger.info(f"Querry Done")
+        records = cursor.fetchall()
+        return records
+
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
+
+
 @app.post("/api/start_scraper")
 async def start_scraper():
     try:
         logger.info(f"Start Scraper")
-        os.system("python3 ../scraper.py")  # call scraper
+        process = await asyncio.create_subprocess_exec(
+            "python3", "-c", "from scraper import scrape; scrape()",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
+        if stdout:
+            logger.info(f"Scraper output: {stdout.decode()}")
+        if stderr:
+            logger.error(f"Scraper error: {stderr.decode()}")
+        return {"message": "Scraper run finish."}
 
-        return "Done"
+
     except Exception as Error:
         error_message = "Error occurred: {}".format(str(Error))
         error_traceback = traceback.format_exc()
