@@ -104,6 +104,11 @@ class RequestRawData(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     numbers: int = 20
+# 取得label table
+class GetLabelTable(BaseModel):
+    labelid: int
+    labelname: str
+    description: str
 
 # 日期範圍調整
 def adjust_date_range(start_date_str, end_date_str):
@@ -294,9 +299,9 @@ async def modify_bulletin(rawid: int, post: PostIn):
             # 修改公告資料
             cursor.execute("""
                 UPDATE bulletinraw
-                SET publisher = %s, title = %s, url = %s, content = %s, addtime = %s
+                SET publisher = %s, title = %s, url = %s, content = %s
                 WHERE rawid = %s
-            """, (post.publisher, post.title, post.url, post.content, post.addtime, rawid))
+            """, (post.publisher, post.title, post.url, post.content, rawid))
             connection.commit()
             logger.info(f"Modification in progress")
             return {"message": "Data is being modified"}
@@ -317,7 +322,41 @@ async def modify_bulletin(rawid: int, post: PostIn):
             cursor.close()
             connection.close()
 
+# 取得label table整個資料表
+@app.post('/llm/get_label_table')
+async def get_label_table():
+    try:
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
 
+        # 執行 SQL 查詢
+        cursor.execute("SELECT * FROM label")
+        rows = cursor.fetchall()
+
+        # 將查詢結果轉換為自定義的 GetLabelTable 物件列表
+        data = [
+            GetLabelTable(
+                labelid=row[0],
+                labelname=row[1],
+                description=row[2]
+            )
+            for row in rows
+        ]
+
+        return data
+
+    except Exception as Error:
+        error_message = "Error occurring during modification: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
 
 @app.post("/scraper/save_bulletin")
 async def save_bulletin(post: PostIn):
