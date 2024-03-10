@@ -201,7 +201,6 @@ function Raw() {
                         <th className="th_addtime">時間</th>
                         <th className="th_publisher">發布單位</th>
                         <th className="th_title">主旨</th>
-                        <th className="th_url">URL</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -212,22 +211,19 @@ function Raw() {
                                 <td>{formatDateTime(item.addtime)}</td>
                                 <td>{item.publisher}</td>
                                 <td>
-                                    {item.title}
+                                    <a href={item.url} target="_blank" rel="noopener noreferrer">
+                                        {item.title}
+                                    </a>
                                     <button className="button_context" onClick={() => handleShowContext(index)}>
                                         {ShowContext.includes(index) ? '收起內文' : '展開內文'}
                                     </button>
-                                </td>
-                                <td>
-                                    <a href={item.url} target="_blank" rel="noopener noreferrer">
-                                        更多
-                                    </a>
                                 </td>
                             </tr>
                             {ShowContext.includes(index) && (
                                 <tr>
                                     <td></td>
                                     <td>內文</td>
-                                    <td colSpan={3}>
+                                    <td colSpan={2}>
                                         {item.content}
                                     </td>
                                 </tr>
