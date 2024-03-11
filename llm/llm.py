@@ -125,6 +125,22 @@ class LLMService:
         result['tags'] = regex_labels.get('tags', []) + voting_result.get('tags', [])
         return result
 
+    async def aggregate_tags_from_models(self, rawid, title, content):
+        # 假设 BulletinInfo 包含了 rawid, title, content
+        bulletin_info = {"rawid": rawid, "title": title, "content": content}
+        
+        # 对 BulletinInfo 进行处理，这里 LLM1, LLM2, LLM3 是示例处理函数
+        # 你需要根据实际情况定义这些函数或者处理逻辑
+        results_llm1 = self.LLM1(bulletin_info)
+        results_llm2 = self.LLM2(bulletin_info)
+        results_llm3 = self.LLM3(bulletin_info)
+        
+        # 将结果提交给投票系统，这里的 voting 是一个示例函数
+        # 你需要根据实际情况定义投票或聚合逻辑
+        final_tags = self.voting([results_llm1, results_llm2, results_llm3])
+        
+        # 返回最终的标签
+        return {"tags": final_tags}        
     async def execute(self):
         # Fetch unprocessed bulletins
         bulletins_response = requests.post(f"{self.api_endpoint}/llm/get_unprocessed_bulletin")
@@ -176,15 +192,40 @@ if __name__ == '__main__':
 
     # content='### 指令操作：\n\n#### 段落分割：\n- 段落1：【學務處生輔組】112-2新增【校外】、【自辦】獎助學金，詳見獎學金網頁/最新消息。\n- 段落2：© Copyright (c) NTUST 2020© 學務處生活輔導組電話：(02)2730-3760© 系統開發及維護：電子計算機中心\n\n#### 主旨分析：\n- 段落1主旨：學務處生輔組在112-2學期新增了校外和自辦的獎助學金，詳細信息可以在獎學金網頁的最新消息中查看。\n- 段落2主旨：版權所有，學務處生活輔導組的聯絡電話和系統開發及維護單位的信息。\n\n#### 摘要提取：\n- 段落1摘要：112-2學期新增校外和自辦的獎助學金，詳情請查看獎學金網頁的最新消息。\n- 段落2摘要：學務處生活輔導組的聯絡電話為(02)2730-3760，系統由電子計算機中心開發及維護。\n\n#### 標籤匹配：\n- 段落1標籤：學校舉辦活動\n- 段落2標籤：其他\n\n### 指令操作：\n\n#### 標籤合併：\n- 學校舉辦活動、其他\n\n#### JSON格式輸出：\n```json\n{\n    "tags": ["學校舉辦活動", "其他"]\n}\n```'
     # print(get_dict_from_str(content))
-    LLM = LLMService("127.0.0.1:8000")
+    LLM = LLMService("http://127.0.0.1:8000")
     
-    # a = {
-    #     "tags":["餐點"]
-    # }
-    # b = {
-    #     "tags":["餐點"]
-    # }
-    # c = {
-    #     "tags":["其他"]
-    # }
-    # print(LLM.voting(a,b,c))
+    # import os
+    # import asyncio
+    # from openai import AsyncOpenAI
+
+    # client = AsyncOpenAI(
+    #     # This is the default and can be omitted
+    #     api_key=os.environ.get("OPENAI_API_KEY"),
+    # )
+
+    # async def llm(title,content) -> None:
+    #     response = await client.chat.completions.create(
+    #         messages=[
+    #             {
+    #                 "role": "user",
+    #                 "content": "Say this is a test",
+    #             }
+    #         ],
+    #         model="gpt-3.5-turbo",
+    #     )
+    #     print(response)
+    #     return response
+
+        
+        # chat_completion = await client.chat.completions.create(
+        #     messages=[
+        #         {
+        #             "role": "user",
+        #             "content": "i am leo who are u ",
+        #         }
+        #     ],
+        #     model="gpt-3.5-turbo",
+        # )
+
+
+    asyncio.run(llm(1,2))

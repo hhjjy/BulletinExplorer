@@ -1,4 +1,6 @@
 # Django #
+test.py
+test.ipynb
 .env
 logs
 *.log
