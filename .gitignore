@@ -140,3 +140,7 @@ media/*
 # Pipenv
 Pipfile
 .venv
+
+# frontend
+frontend/node_modules/
+frontend/package-lock.json

@@ -11,6 +11,13 @@ if not OPENAI_API_KEY:
     raise ValueError("请设置 OPENAI_API_KEY 环境变量。")
 logger = setup_logger("llm_service", log_level=logging.DEBUG)
 
+# label table的所有資料
+label_table = None
+def get_label_table():
+    response = requests.post("http://localhost:8000/llm/get_label_table")
+    label_table = response.json()  # 將 JSON 格式的回應轉換為 dict
+    return label_table
+
 class LLMService:
     def __init__(self,api_endpoint):
         self.llm = ChatOpenAI(temperature=0.3, model_name="gpt-4-0613")
@@ -59,8 +66,33 @@ class LLMService:
 
     async def classify_content_by_regex(self, title: str, content: str) -> dict:
         result = {'tags': []}
+        global label_table
+
+        if label_table is None:
+            label_table = get_label_table()
+        
+        matched_labels = []  # 用於儲存符合的標籤
+
+        # 正規表達式模式，尋找符合的標籤名稱
+        label_names = [label["labelname"] for label in label_table]
+        pattern = "|".join(label_names)
+        regex = re.compile(pattern)
+
+        # 搜尋標題中的符合標籤
+        title_matches = regex.findall(title)
+        matched_labels.extend(title_matches)
+
+        # 搜尋內容中的符合標籤
+        content_matches = regex.findall(content)
+        matched_labels.extend(content_matches)
+
+        # 去除重複的標籤
+        matched_labels = list(set(matched_labels))
+        
+        result['tags'] = matched_labels
 
         return result
+    
     def voting(self, llm1_labels, llm2_labels, llm3_labels) -> dict:
         logger.info(f"輸入: {llm1_labels},{llm2_labels},{llm3_labels}")
         # Initialize an empty dictionary to store the final result
