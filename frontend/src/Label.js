@@ -7,14 +7,23 @@ import './Label.css';
 function Label() {
     const location = useLocation();
     useEffect(() => {
-        document.title = "Label Page";
+        document.title = "Raw Page";
     }, [location]);
 
     const [Data, setData] = useState([]); // 顯示在頁面上的資料
     const [KeywordsSearch, setKeywordsSearch] = useState(''); // 儲存搜尋內文關鍵字欄位的資料
-    const [ShowContext, setShowContext] = useState([]); // 顯示表格的內文欄位
+    // const [ShowContext, setShowContext] = useState([]); // 顯示表格的內文欄位
     const [DataTotalNumber, setDataTotalNumber] = useState(2); // 儲存搜尋比數
     const [DateRange, setDateRange] = useState([null, null]); // 儲存搜尋日期範圍
+    const [SelecteOption, setSelecteOption] = useState(''); // 下拉式選單資料
+
+    // 定義選項列表
+    const options = ['ALL', '發布單位', '內文'];
+
+    // 處理選項變更事件
+    const handleSelecteOption = (event) => {
+        setSelecteOption(event.target.value);
+    };
 
     // Search 欄位
     const handleDataSearch = (e) => {
@@ -67,7 +76,7 @@ function Label() {
         }
 
         setData(jsonData);
-        setShowContext([]);
+        // setShowContext([]);
     };
 
     // 儲存搜尋日期範圍
@@ -89,22 +98,22 @@ function Label() {
         return formattedDateTime;
     };
 
-    // 收起/展開 表格的內文欄位
-    const handleShowContext = (index) => {
-        const newShowContext = [...ShowContext];
-        if (newShowContext.includes(index)) { // 如果已經展開，則收起
-            const indexToRemove = newShowContext.indexOf(index);
-            newShowContext.splice(indexToRemove, 1);
-        } else { // 如果尚未展開，則展開
-            newShowContext.push(index);
-        }
-        setShowContext(newShowContext);
-    };
+    // // 收起/展開 表格的內文欄位
+    // const handleShowContext = (index) => {
+    //     const newShowContext = [...ShowContext];
+    //     if (newShowContext.includes(index)) { // 如果已經展開，則收起
+    //         const indexToRemove = newShowContext.indexOf(index);
+    //         newShowContext.splice(indexToRemove, 1);
+    //     } else { // 如果尚未展開，則展開
+    //         newShowContext.push(index);
+    //     }
+    //     setShowContext(newShowContext);
+    // };
 
     // 抓取後端 API 資料
     const FetchAPI = async (requestData) => {
         try {
-            const response = await fetch('http://127.0.0.1:8000/frontend/get_bulletin', {
+            const response = await fetch('http://127.0.0.1:8000/frontend/get_processed_table', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -129,6 +138,7 @@ function Label() {
         const fetchData = async () => {
             try {
                 const requestData = {
+                    search_label: "社會實踐",
                     numbers: 2
                 };
 
@@ -148,6 +158,15 @@ function Label() {
             <div className="navigation">
                 <div className="NTUST">NTUST</div>
                 <div className="searh">
+                    <label htmlFor="SelecteOption">搜尋位置:</label>
+                    <select value={SelecteOption} onChange={handleSelecteOption} class="SelecteOption">
+                        {options.map((option, index) => (
+                            <option key={index} value={option}>
+                                {option}
+                            </option>
+                        ))}
+                    </select>
+
                     <label htmlFor="KeywordsSearch">關鍵字:</label>
                     <input
                         type="text"
@@ -180,10 +199,9 @@ function Label() {
                 <thead>
                     <tr>
                         <th className="th_number">排序</th>
-                        <th className="th_addtime">時間</th>
+                        <th className="th_addtime">日期</th>
                         <th className="th_publisher">發布單位</th>
                         <th className="th_title">主旨</th>
-                        <th className="th_url">URL</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -194,26 +212,23 @@ function Label() {
                                 <td>{formatDateTime(item.addtime)}</td>
                                 <td>{item.publisher}</td>
                                 <td>
-                                    {item.title}
-                                    <button className="button_context" onClick={() => handleShowContext(index)}>
-                                        {ShowContext.includes(index) ? '收起內文' : '展開內文'}
-                                    </button>
-                                </td>
-                                <td>
                                     <a href={item.url} target="_blank" rel="noopener noreferrer">
-                                        更多
+                                        {item.title}
                                     </a>
+                                    {/*<button className="button_context" onClick={() => handleShowContext(index)}>
+                                        {ShowContext.includes(index) ? '收起內文' : '展開內文'}
+                                    </button>*/}   
                                 </td>
                             </tr>
-                            {ShowContext.includes(index) && (
+                            {/*{ShowContext.includes(index) && (
                                 <tr>
                                     <td></td>
                                     <td>內文</td>
-                                    <td colSpan={3}>
+                                    <td colSpan={2}>
                                         {item.content}
                                     </td>
                                 </tr>
-                            )}
+                            )}*/} 
                         </React.Fragment>
                     ))}
                 </tbody>

@@ -1,0 +1,155 @@
+/* 網頁 */
+body {
+    /* background-color: #ffffff; */
+    font-family: "微軟正黑體", Arial, sans-serif;
+}
+
+/* 導航列 */
+.navigation {
+    background-color: #a1bbd4;
+    height: 70px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* 導航列 - 標誌 */
+.NTUST {
+    font-size: 30px;
+    color: #2f5a92;
+    font-weight: bold;
+    text-align: left;
+    padding-left: 15px;
+}
+
+/* 導航列 - 搜尋 */
+.searh {
+    display: flex;
+    align-items: center;
+    text-align: right;
+}
+
+/* 導航列 - 搜尋 - label */
+label {
+    font-size: 18px;
+    margin-right: 8px;
+}
+
+/* 導航列 - 搜尋 - input, button */
+input,
+.button_search {
+    font-size: 18px;
+    border-radius: 20px;
+    padding: 8px;
+    /* background-color: #8383c5; */
+    background-color: #d8ebf8;
+    cursor: pointer;
+    margin-right: 20px;
+}
+
+/* 導航列 - 搜尋 - select - 單位搜尋框 */
+.SelecteOption {
+    background-color: #d8ebf8;
+    border: 1px solid #a9c2d3;
+    border-radius: 10px;
+    width: 100px;
+    margin-right: 20px;
+    font-size: 14px;
+    height: 36px;
+}
+
+/* 導航列 - 搜尋 - input - 關鍵字搜尋框 */
+.KeywordsSearch {
+    background-color: #d8ebf8;
+    border: 1px solid #a9c2d3;
+    width: 200px;
+}
+
+/* 導航列 - 搜尋 - DateRangePicker - 日期範圍框 */
+.DateRange {
+    width: 250px;
+    background-color: #d8ebf8;
+    cursor: pointer;
+    margin-right: 20px;
+
+}
+
+/* 導航列 - 搜尋 - input - 數量搜尋框 */
+.DataTotalNumber {
+    /* background-color: #eedfed;
+    border: 1px solid #d584d8; */
+    background-color: #d8ebf8;
+    border: 1px solid #a9c2d3;
+    width: 80px;
+}
+
+.button_context {
+    font-size: 14px;
+    border-radius: 20px;
+    padding: 6px;
+    background-color: #d8ebf8;
+    cursor: pointer;
+    margin-left: 20px;
+}
+
+.th_number {
+    width: 3%;
+}
+
+.th_addtime {
+    width: 10%;
+}
+
+.th_publisher {
+    width: 17%;
+}
+
+.th_title {
+    width: 65%;
+}
+
+.th_url {
+    width: 3%;
+}
+
+
+
+
+
+
+/* table */
+table {
+    margin: 10px auto;
+    width: 100%;
+}
+
+/* table header */
+thead {
+    background-color: #5987a7;
+    color: #fff;
+    position: sticky;
+    font-size: 18px;
+}
+
+/* table cells and padding */
+th {
+    padding: 10px 5px 10px 5px;
+    border: 1px solid #ddd;
+    font-size: 20px;
+}
+
+td {
+    padding: 10px;
+    border: 1px solid #ddd;
+}
+
+/* Hover effect to table rows */
+tbody tr:hover {
+    background-color: #cfdef1;
+}
+
+/* URL link */
+a {
+    color: #3498db;
+    text-decoration: none;
+}

@@ -198,7 +198,7 @@ function Raw() {
                 <thead>
                     <tr>
                         <th className="th_number">排序</th>
-                        <th className="th_addtime">時間</th>
+                        <th className="th_addtime">日期</th>
                         <th className="th_publisher">發布單位</th>
                         <th className="th_title">主旨</th>
                     </tr>
