@@ -7,7 +7,7 @@ import './Label.css';
 function Label() {
     const location = useLocation();
     useEffect(() => {
-        document.title = "Raw Page";
+        document.title = "Label Page";
     }, [location]);
 
     const [Data, setData] = useState([]); // 顯示在頁面上的資料
