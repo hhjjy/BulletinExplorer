@@ -98,7 +98,15 @@ class Coordinate(BaseModel):
 class CheckCoordinate(BaseModel):
     function: str
 # 取得原始公告
-class RequestRawData(BaseModel):
+class GetRawTable(BaseModel):
+    publisher: Optional[str] = None
+    keywords: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    numbers: int = 20
+# 取得標籤後資訊
+class GetProcessedTable(BaseModel):
+    search_label: Optional[str] = None
     publisher: Optional[str] = None
     keywords: Optional[str] = None
     start_date: Optional[str] = None
@@ -131,7 +139,7 @@ def adjust_date_range(start_date_str, end_date_str):
         logger.error(f"Error in adjusting date range: {e}")
         raise ValueError("Invalid date format provided")
 
-def create_sql_query(publisher, keywords, number_data, start_date, end_date):
+def create_sql_query(publisher, keywords, number_data, start_date, end_date, table):
     case_statements = []
     where_conditions = []
     params = []
@@ -155,7 +163,7 @@ def create_sql_query(publisher, keywords, number_data, start_date, end_date):
         sql_query = f"""
             SELECT *,
             ({case_sql}) AS Score
-            FROM public.bulletinraw
+            FROM {table}
             WHERE ({where_sql}) {where_date_sql}
             ORDER BY Score DESC, addtime DESC
             LIMIT %s;
@@ -172,7 +180,7 @@ def create_sql_query(publisher, keywords, number_data, start_date, end_date):
         where_date_sql = "" if start_date is None or end_date is None else f"AND ( addtime >= %s AND addtime < %s)"
         
         sql_query = f"""
-            SELECT * FROM bulletinraw
+            SELECT * FROM FROM {table}
             WHERE ({where_sql}) {where_date_sql}
             ORDER BY addtime DESC
             LIMIT %s;
@@ -181,7 +189,7 @@ def create_sql_query(publisher, keywords, number_data, start_date, end_date):
     else: # 兩者都沒有
         where_date_sql = "" if start_date is None or end_date is None else f"WHERE ( addtime >= %s AND addtime < %s)"
         sql_query = f"""
-            SELECT * FROM bulletinraw
+            SELECT * FROM {table}
             {where_date_sql}
             ORDER BY addtime DESC
             LIMIT %s;
@@ -193,11 +201,11 @@ def create_sql_query(publisher, keywords, number_data, start_date, end_date):
 
 # 取得最新的幾筆資料
 # 取得的格式如下 ((rawid, publisher, title, url, content, addtime),()...,)
-def fetch_data(publisher: str, keywords: str, numbers: int, start_date: str, end_date: str):
+def fetch_data(publisher: str, keywords: str, numbers: int, start_date: str, end_date: str, table: str):
     logger.debug(f"publisher:{publisher}, keywords:{keywords}, numbers:{numbers}, start_date:{start_date}, end_date:{end_date}")
     connection = psycopg2.connect(**db_config)
     cursor = connection.cursor()
-    SQL_query ,params = create_sql_query(publisher, keywords, numbers, start_date, end_date)
+    SQL_query ,params = create_sql_query(publisher, keywords, numbers, start_date, end_date, table)
     query = sql.SQL(SQL_query)
     cursor.execute(query, params)
     records = cursor.fetchall()
@@ -210,17 +218,17 @@ def fetch_data(publisher: str, keywords: str, numbers: int, start_date: str, end
 # 測試過中文的參數進入fastapi會自動處理不須轉換
 # 取得原始公告資料  
 @app.post("/frontend/get_bulletin", response_model=List[Post])
-async def get_bulletin(request_raw_data: RequestRawData):
+async def get_bulletin(post: GetRawTable):
     try:
-        publisher = request_raw_data.publisher
-        keywords = request_raw_data.keywords
-        start_date = request_raw_data.start_date
-        end_date = request_raw_data.end_date
-        numbers = request_raw_data.numbers
+        publisher = post.publisher
+        keywords = post.keywords
+        start_date = post.start_date
+        end_date = post.end_date
+        numbers = post.numbers
         search_type = "ALL" if not keywords and not publisher else ("keywords" if keywords else "publisher")
         logger.info(f"Fetching {numbers} latest posts with {search_type} from Date:{start_date}~{end_date}")
 
-        raw_data = fetch_data(publisher, keywords, numbers, start_date, end_date)  # ((id, publisher,),....)
+        raw_data = fetch_data(publisher, keywords, numbers, start_date, end_date, "bulletinraw")  # ((id, publisher,),....)
         data = [
             Post(
                 rawid = row[0],
@@ -321,6 +329,71 @@ async def modify_bulletin(rawid: int, post: PostIn):
         if connection:
             cursor.close()
             connection.close()
+
+# 查詢標籤對應的 rawid 函數
+def get_rawid_by_label(search_label, cursor):
+    SQL_query = sql.SQL("""
+        SELECT DISTINCT rawid FROM bulletinprocessed WHERE labelid = (
+            SELECT labelid FROM label WHERE labelname = %s
+        )
+    """)
+    cursor.execute(SQL_query, [search_label])
+    rawids = cursor.fetchall()
+    return [rawid[0] for rawid in rawids]
+
+# 取得 rawid 對應的資料函數
+def get_data_by_rawid(rawids, cursor):
+    SQL_query = sql.SQL("""
+        SELECT rawid, publisher, title, url FROM bulletinraw WHERE rawid IN %s
+    """)
+    cursor.execute(SQL_query, [tuple(rawids)])
+    data = cursor.fetchall()
+    return data
+
+# 取得標籤後資料
+@app.post("/frontend/get_processed_table")
+async def get_processed_table(post: GetProcessedTable):
+    try:
+        search_label = post.search_label
+        publisher = post.publisher
+        keywords = post.keywords
+        start_date = post.start_date
+        end_date = post.end_date
+        numbers = post.numbers
+        
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+
+        # if search_label:
+        rawids = get_rawid_by_label(search_label, cursor)
+        raw_data = get_data_by_rawid(rawids, cursor)
+        # else:
+        #     raw_data = fetch_data(publisher, keywords, numbers, start_date, end_date, "bulletinprocessed")
+        
+        data = [
+            {
+                "rawid": row[0],
+                "publisher": row[1],
+                "title": row[2],
+                "url": row[3]
+            }
+            for row in raw_data
+        ]
+
+        if connection:
+            cursor.close()
+            connection.close()
+            print("PostgreSQL connection is closed")
+
+        return data
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
 
 # 取得label table整個資料表
 @app.post('/llm/get_label_table')
