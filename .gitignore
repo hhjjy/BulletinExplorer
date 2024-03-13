@@ -1,4 +1,5 @@
 # Django #
+end_development.sh
 test.py
 test.ipynb
 .env
