@@ -764,7 +764,7 @@ async def start_event(post: Coordinate):
             connection.close()
 
 
-@app.post("/bot/delete_event")
+@app.post("/scraper/delete_event")
 async def delete_event(post: Coordinate):
     logger.info(f"{post.function} is deleting")
     try:
@@ -774,22 +774,28 @@ async def delete_event(post: Coordinate):
 
             # INSERT INTO public.coordinates (function, start)
             # VALUES (%s, %s);
-        cursor.execute("""
+        # cursor.execute("""
                        
-            DO $$
-            BEGIN
-                -- Check if there is only one row meeting the conditions
-                IF (SELECT COUNT(*) FROM public.coordinates WHERE function = %s AND start = 1 AND finish = false) = 1 THEN
-                    -- Update the 'finish' column to 1 for the specified conditions
-                    UPDATE public.coordinates
-                    SET finish = true
-                    WHERE function = %s AND start = 1 AND finish = false;
-                ELSE
-                    -- Return an error message if there are not exactly one row matching the conditions
-                    RAISE EXCEPTION 'More than one row or no row found matching the specified conditions';
-                END IF;
-            END $$;
-        """, (post.function, post.status))
+        #     DO $$
+        #     BEGIN
+        #         -- Check if there is only one row meeting the conditions
+        #         IF (SELECT COUNT(*) FROM public.coordinates WHERE function = %s AND start = 1 AND finish = false) = 1 THEN
+        #             -- Update the 'finish' column to 1 for the specified conditions
+        #             UPDATE public.coordinates
+        #             SET finish = true
+        #             WHERE function = %s AND start = 1 AND finish = false;
+        #         ELSE
+        #             -- Return an error message if there are not exactly one row matching the conditions
+        #             RAISE EXCEPTION 'More than one row or no row found matching the specified conditions';
+        #         END IF;
+        #     END $$;
+        # """, (post.function, post.status))
+        cursor.execute("""
+            UPDATE public.coordinates
+            SET finish = true,
+                start = 2
+            WHERE function = %s AND start = 1 AND finish = false;
+        """, (post.function, ))
         connection.commit()
         logger.info(f"{post.function} Delete Done")
         return {f"Delete {post.function}"}
@@ -807,8 +813,8 @@ async def delete_event(post: Coordinate):
             cursor.close()
             connection.close()
 
-@app.post("/bot/get_even_status")
-async def get_even_status(post: CheckCoordinate):
+@app.post("/bot/get_event_status")
+async def get_event_status(post: CheckCoordinate):
     logger.info(f"Checking can {post.function} start")
     try:
         connection = psycopg2.connect(**db_config)

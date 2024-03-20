@@ -136,7 +136,7 @@ def scrape():
     url = delete_event
     data = {
         "function": "scraper",
-        "status": "1"
+        "status": "2"
     }
     response = requests.post(url, json=data)
 
