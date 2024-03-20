@@ -20,7 +20,10 @@ add_subscription = API_server + "/bot/add_subscription"
 get_labelid = API_server + "/bot/get_labelid"
 list_subscription = API_server + "/bot/list_subscription"
 get_user = API_server + "/bot/get_user"
-
+get_event_status = API_server + "/bot/get_event_status"
+start_event = API_server + "/bot/start_event"
+start_scraper = API_server + "/api/start_scraper"
+delete_event = API_server + "/scraper/delete_event"
 
 user = []
 
@@ -29,6 +32,43 @@ async def update_user(context: ContextTypes.DEFAULT_TYPE) -> None:
     url = get_user
     user_json = json.loads(requests.post(url).text)
     user = [int(x[0]) for x in user_json]
+
+async def scraper(context: ContextTypes.DEFAULT_TYPE) -> None:
+    url = get_event_status
+    data = {
+        "function": "scraper"
+    }
+    response = requests.post(url, json=data)
+    
+    if response.text[1:-1] == '0':#count of running
+        url = start_event
+        data = {
+            "function": "scraper",
+            "status": "1"
+        }
+        response = requests.post(url, json=data)
+
+        url = start_scraper
+        response = requests.post(url)
+
+async def llm(context: ContextTypes.DEFAULT_TYPE) -> None:
+    url = get_event_status
+    data = {
+        "function": "llm"
+    }
+    response = requests.post(url, json=data)
+    
+    if response.text[1:-1] == '0':
+        url = start_event
+        data = {
+            "function": "llm",
+            "status": "1"
+        }
+        response = requests.post(url, json=data)
+
+        #url = start_llm
+        #response = requests.post(url)
+
 
 
 #Welcome
@@ -128,6 +168,19 @@ async def list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 #boot message & set instruction
 async def post_init(application: Application) -> None:
+    # for start-up
+    url = delete_event
+    data = {
+        "function": "scraper",
+        "status": "2"
+    }
+    response = requests.post(url, json=data)
+    url = delete_event
+    data = {
+        "function": "llm",
+        "status": "2"
+    }
+    response = requests.post(url, json=data)
     await application.bot.set_my_commands([('start', '開始使用'),('list', '顯示正在追蹤的標籤')])
     #await application.bot.send_message(str(user[0][0]), "系統啟動")
 
@@ -140,6 +193,7 @@ def main() -> None:
     application = Application.builder().token(TOKEN).post_init(post_init).post_stop(post_stop).build()
     job_queue = application.job_queue
     job_minute = job_queue.run_repeating(update_user, interval=30, first=3)
+    job_minute = job_queue.run_repeating(scraper, interval=5, first=3)
 
 
     application.add_handler(CommandHandler(["start", "help"], start))
