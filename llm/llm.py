@@ -5,6 +5,7 @@ import logging,traceback
 from openai import AsyncOpenAI
 
 load_dotenv()
+api_link = os.getenv("API_HOST")+os.getenv("API_PORT")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("请设置 OPENAI_API_KEY 环境变量。")
@@ -15,15 +16,20 @@ client = AsyncOpenAI(
 # label table的所有資料
 label_table = None
 def get_label_table():
-    response = requests.post("http://localhost:8000/llm/get_label_table")
+    response = requests.post(f"http://{api_link}/llm/get_label_table")
     label_table = response.json()  # 將 JSON 格式的回應轉換為 dict
     return label_table
-
+def find_labelid(label_define, labelname):
+    for label in label_define:
+        if label['labelname'] == labelname:
+            return label['labelid']
+    else :
+        return 0 #表示其他
 class LLMService:
     def __init__(self,api_endpoint):
         self.api_endpoint = api_endpoint
         # openai.api_key = os.getenv("OPENAI_API_KEY")
-    async def classify_content_by_regex(self, title: str, content: str) -> dict:
+    def classify_content_by_regex(self, title: str, content: str) -> dict:
         result = {'tags': []}
         global label_table
 
@@ -53,6 +59,11 @@ class LLMService:
         return result
     
     def voting(self, llm1_labels, llm2_labels, llm3_labels) -> dict:
+        # 規則：
+        #     1. 創立一個集合 計算各個標籤的個數 
+        #     2. 只要標籤不是其他 超過兩票就算
+        #     3. 針對其他大於兩票 強制把其他標籤結果覆蓋 
+        #     4. 或是結果恰好沒有同意的 會被設為其他 表示意見非常繁雜
         logger.info(f"輸入: {llm1_labels},{llm2_labels},{llm3_labels}")
         # Initialize an empty dictionary to store the final result
         result = {'tags': []}
@@ -80,8 +91,17 @@ class LLMService:
         return result
 
     def combine(self, regex_labels, voting_result)->dict:
+        # 如果 llm輸出的標籤有其他 ，只有在regex_labe 數量為0的情況下 才會輸出其他 。
+        # 否則其他情況 其他都會被覆蓋 。
         result = {'tags': []}
-        result['tags'] = regex_labels.get('tags', []) + voting_result.get('tags', [])
+        if "其他" in voting_result.get('tags', []) :
+            regex = regex_labels.get('tags', [])
+            if len(regex) > 0:
+                result['tags'] = regex # 只有在regex長度不為0才會輸出regex 否則就是輸出其他
+            else :
+                result['tags'] = ["其他"]
+        else:
+            result['tags'] = voting_result.get('tags', []) + regex_labels.get('tags', []) # 直接輸出串接 
         return result
 
     async def llm(self,title: str, content: str):
@@ -135,70 +155,37 @@ class LLMService:
             message_content = chat_completion.choices[0].message.content  # 注意这里的改动
         else:
             message_content = "No completion choices were returned."
-        return message_content
+            
+        # logger.info(f"gpt response :{message_content}")
+        j = self.extract_json_from_response(message_content)
+        logger.info(f"Json response :{j}")
+        return j
     
-    # async def aggregate_tags_from_models(self, rawid, title, content):
-    #     # 假设 BulletinInfo 包含了 rawid, title, content
-    #     bulletin_info = {"rawid": rawid, "title": title, "content": content}
-        
-    #     # 对 BulletinInfo 进行处理，这里 LLM1, LLM2, LLM3 是示例处理函数
-    #     # 你需要根据实际情况定义这些函数或者处理逻辑
-    #     results_llm1 = self.llm(bulletin_info)
-    #     results_llm2 = self.llm(bulletin_info)
-    #     results_llm3 = self.llm(bulletin_info)
-        
-    #     # 将结果提交给投票系统，这里的 voting 是一个示例函数
-    #     # 你需要根据实际情况定义投票或聚合逻辑
-    #     final_tags = self.voting([results_llm1, results_llm2, results_llm3])
-        
-    #     # 返回最终的标签
-    #     return {"tags": final_tags}   
-    async def test(self,title,content):
-        llm1_labels = await self.llm(title, content)
-        llm2_labels = await self.llm(title, content)
-        llm3_labels = await self.llm(title, content)
-        print(llm1_labels)
-        print(llm2_labels)
-        print(llm3_labels)
-        logger.info(f"llm1,2,3:{llm1_labels},{llm2_labels},{llm3_labels}")
-        llm_voting_result = self.voting(llm1_labels, llm2_labels, llm3_labels)
-        logger.info(f"llm_voting_result:{llm_voting_result}")
-        
+ 
     async def execute(self):
         # Fetch unprocessed bulletins
         bulletins_response = requests.post(f"{self.api_endpoint}/llm/get_unprocessed_bulletin")
         bulletins = bulletins_response.json()
+        label_define = get_label_table() 
         for bulletin in bulletins:
             rawid = bulletin['rawid']
             title = bulletin['title']
             content = bulletin['content']
             # Classify content using three different LLMs and perform voting
-            llm1_labels = await self.llm(title, content)
-            llm2_labels = await self.llm(title, content)
-            llm3_labels = await self.llm(title, content)
-            logger.info(f"llm1,2,3:{llm1_labels},{llm2_labels},{llm3_labels}")
-            llm_voting_result = self.voting(llm1_labels, llm2_labels, llm3_labels)
-            logger.info(f"llm_voting_result:{llm_voting_result}")
-            # Classify content using regex
-            # labels_regex = await self.classify_content_by_regex(title, content)
+            lables = self.classify_and_vote(title, content)
 
-            # # Combine results
-            # result_label = await self.combine(labels_regex, llm_voting_result)
-
-            # # Post labels back to the API
-            # for tag in result_label['tags']:
-                
-            #     label_response = await requests.post(f"{self.api_endpoint}/llm/get_label_id", json={'labelname': tag})
-            #     label_id = label_response.json()['labelid']
-            #     response_dict = {'rawid': rawid, 'labelid': label_id}
-            #     await requests.post(f"{self.api_endpoint}/llm/save_label", json=response_dict)
+            # Post labels back to the API
+            for tag in lables.get('tags'):
+                label_id = find_labelid(label_define, tag)
+                response_dict = {'rawid': rawid, 'labelid': label_id}
+                requests.post(f"{self.api_endpoint}/llm/save_label", json=response_dict)
 
         # Report finishing
-        requests.post(f"{self.api_endpoint}/llm/report_finishing")
+        # requests.post(f"{self.api_endpoint}/llm/report_finishing")
 
     @staticmethod
     def extract_json_from_response(response: str) -> dict:
-        logger.info(f"input : {response}")
+        # logger.info(f"input : {response}")
         """从字符串中提取 JSON 并返回字典"""
         # 匹配被 ```json\n 和 ``` 包裹的，或直接以 { 开头直到 } 结尾（考虑嵌套的情况）的 JSON 字符串
         pattern = r'```json\n([\s\S]*?)```|(\{[\s\S]*?\}(?![\s\S]*\}))'
@@ -208,50 +195,131 @@ class LLMService:
         response_dict = json.loads(json_content_str)
         logger.info(f"output : {response_dict}")
         return response_dict
+    
+    async def classify_and_vote(self,title,content):
+        # 1. 正則表達式找確定標籤 
+        regex_labels = self.classify_content_by_regex(title,content)
+        logger.info(f"regex result:{regex_labels}")
+        # 2. LLM標籤分類 
+        logger.info(f"start llm1, llm2, llm3 concurrently")
+        llm1_labels, llm2_labels, llm3_labels = await asyncio.gather(
+            self.llm(title, content),
+            self.llm(title, content),
+            self.llm(title, content)
+        )
+        logger.info(f"llm1,2,3:{llm1_labels},{llm2_labels},{llm3_labels}")
+        # 3. LLM投票決定最終標籤 
+        logger.info(f"llm1,2,3:{llm1_labels},{llm2_labels},{llm3_labels}")
+        llm_voting_result = self.voting(llm1_labels, llm2_labels, llm3_labels)
+        logger.info(f"llm_voting_result:{llm_voting_result}")
+        # 4. 合併兩者結果
+        combine_labels = self.combine(regex_labels, llm_voting_result)
+        logger.info(f"combine_labels:{combine_labels}")
+        return combine_labels
+import unittest
+class TestLLMCombine(unittest.TestCase):
+    def test_combine_other_and_scholarship(self):
+        llm = {"tags": ["其他"]}
+        regex = {"tags": ["獎助學金"]}
+        expected = {"tags": ["獎助學金"]}
+        self.assertEqual(LLM.combine(regex_labels=regex, voting_result= llm), expected)
+
+    def test_combine_other_and_empty(self):
+        llm = {"tags": ["其他"]}
+        regex = {"tags": []}
+        expected = {"tags": ["其他"]}
+        self.assertEqual(LLM.combine(regex_labels=regex, voting_result= llm), expected)
+
+    def test_combine_activity_and_scholarship(self):
+        llm = {"tags": ["學校舉辦活動"]}
+        regex = {"tags": ["獎助學金"]}
+        expected = {"tags": ["學校舉辦活動", "獎助學金"]}
+        self.assertEqual(LLM.combine(regex_labels=regex, voting_result= llm), expected)
+
+    def test_combine_activity_and_empty(self):
+        llm = {"tags": ["學校舉辦活動"]}
+        regex = {"tags": []}
+        expected = {"tags": ["學校舉辦活動"]}
+        self.assertEqual(LLM.combine(regex_labels=regex, voting_result= llm), expected)
+class TestLabelVoter(unittest.TestCase):
+    # def setUp(self):
+        # self.voter = LabelVoter()  # Initialize your class
+
+    def test_other_condition_met(self):
+        llm1_labels = {"tags": ["其他"]}
+        llm2_labels = {"tags": ["其他"]}
+        llm3_labels = {"tags": ["其他"]}
+        expected_result = {"tags": ["其他"]}
+        self.assertEqual(LLM.voting(llm1_labels, llm2_labels, llm3_labels), expected_result)
+
+    def test_one_label_agreed(self):
+        llm1_labels = {"tags": ["獎助學金"]}
+        llm2_labels = {"tags": ["其他"]}
+        llm3_labels = {"tags": ["獎助學金"]}
+        expected_result = {"tags": ["獎助學金"]}
+        self.assertEqual(LLM.voting(llm1_labels, llm2_labels, llm3_labels), expected_result)
+
+    def test_no_agreement(self):
+        llm1_labels = {"tags": ["學校舉辦活動"]}
+        llm2_labels = {"tags": ["其他"]}
+        llm3_labels = {"tags": ["獎助學金"]}
+        expected_result = {"tags": ["其他"]}  # Based on your logic, this should actually be "其他" since there's no agreement
+        self.assertEqual(LLM.voting(llm1_labels, llm2_labels, llm3_labels), expected_result)
+
+    def test_mixed_labels(self):
+        llm1_labels = {"tags": ["學校舉辦活動", "獎助學金"]}
+        llm2_labels = {"tags": ["其他"]}
+        llm3_labels = {"tags": ["獎助學金"]}
+        expected_result = {"tags": ["獎助學金"]}
+        self.assertEqual(LLM.voting(llm1_labels, llm2_labels, llm3_labels), expected_result)
+    def test_withnoinput(self):
+        llm1_labels = {"tags": []}
+        llm2_labels = {"tags": []}
+        llm3_labels = {"tags": []}
+        expected_result = {"tags": ["其他"]}
+        self.assertEqual(LLM.voting(llm1_labels, llm2_labels, llm3_labels), expected_result)
 
 
+class TestAPI(unittest.TestCase):
+    def save_label_inital(self):
+        api = f"http://{api_link}/llm/save_label"
+        data = {"rawid":1,"labelname":"餐點"}
+        expect = {"message":"Label ID INSERT SUCESSFULLY!","detail":""}
+        response = requests.post(api,json=data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), expect)
+    
+    def save_label_same(self):
+        api = f"http://{api_link}/llm/save_label"
+        data = {"rawid":1,"labelname":"餐點"}
+        expect = {"message":"Label ID INSERT SUCESSFULLY!","detail":""}
+        response = requests.post(api,json=data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), expect)
+        
 
 if __name__ == '__main__':
     # llm_classify("【學務處生輔組】112-2新增【校外】、【自辦】獎助學金，詳見獎學金網頁/最新消息。","© Copyright (c) NTUST 2020© 學務處生活輔導組電話：(02)2730-3760© 系統開發及維護：電子計算機中心")
-    print("hello world")
-    # content='### 指令操作：\n\n#### 段落分割：\n- 段落1：【學務處生輔組】112-2新增【校外】、【自辦】獎助學金，詳見獎學金網頁/最新消息。\n- 段落2：© Copyright (c) NTUST 2020© 學務處生活輔導組電話：(02)2730-3760© 系統開發及維護：電子計算機中心\n\n#### 主旨分析：\n- 段落1主旨：學務處生輔組在112-2學期新增了校外和自辦的獎助學金，詳細信息可以在獎學金網頁的最新消息中查看。\n- 段落2主旨：版權所有，學務處生活輔導組的聯絡電話和系統開發及維護單位的信息。\n\n#### 摘要提取：\n- 段落1摘要：112-2學期新增校外和自辦的獎助學金，詳情請查看獎學金網頁的最新消息。\n- 段落2摘要：學務處生活輔導組的聯絡電話為(02)2730-3760，系統由電子計算機中心開發及維護。\n\n#### 標籤匹配：\n- 段落1標籤：學校舉辦活動\n- 段落2標籤：其他\n\n### 指令操作：\n\n#### 標籤合併：\n- 學校舉辦活動、其他\n\n#### JSON格式輸出：\n```json\n{\n    "tags": ["學校舉辦活動", "其他"]\n}\n```'
+# content='### 指令操作：\n\n#### 段落分割：\n- 段落1：【學務處生輔組】112-2新增【校外】、【自辦】獎助學金，詳見獎學金網頁/最新消息。\n- 段落2：© Copyright (c) NTUST 2020© 學務處生活輔導組電話：(02)2730-3760© 系統開發及維護：電子計算機中心\n\n#### 主旨分析：\n- 段落1主旨：學務處生輔組在112-2學期新增了校外和自辦的獎助學金，詳細信息可以在獎學金網頁的最新消息中查看。\n- 段落2主旨：版權所有，學務處生活輔導組的聯絡電話和系統開發及維護單位的信息。\n\n#### 摘要提取：\n- 段落1摘要：112-2學期新增校外和自辦的獎助學金，詳情請查看獎學金網頁的最新消息。\n- 段落2摘要：學務處生活輔導組的聯絡電話為(02)2730-3760，系統由電子計算機中心開發及維護。\n\n#### 標籤匹配：\n- 段落1標籤：學校舉辦活動\n- 段落2標籤：其他\n\n### 指令操作：\n\n#### 標籤合併：\n- 學校舉辦活動、其他\n\n#### JSON格式輸出：\n```json\n{\n    "tags": ["學校舉辦活動", "其他"]\n}\n```'
     # print(get_dict_from_str(content))
-    LLM = LLMService("http://127.0.0.1:8000")
+    LLM = LLMService(f"http://{api_link}")
     title = "【學務處生輔組】112-2新增【校外】、【自辦】獎助學金，詳見獎學金網頁/最新消息。"
     content = "© Copyright (c) NTUST 2020© 學務處生活輔導組電話：(02)2730-3760© 系統開發及維護：電子計算機中心"
-    asyncio.run(LLM.test(title,content))
-    # import os
-    # import asyncio
-    # from openai import AsyncOpenAI
-
-    # client = AsyncOpenAI(
-    #     # This is the default and can be omitted
-    #     api_key=os.environ.get("OPENAI_API_KEY"),
-    # )
-
-    # async def llm(title,content) -> None:
-    #     response = await client.chat.completions.create(
-    #         messages=[
-    #             {
-    #                 "role": "user",
-    #                 "content": "Say this is a test",
-    #             }
-    #         ],
-    #         model="gpt-3.5-turbo",
-    #     )
-    #     print(response)
-    #     return response
-
-        
-        # chat_completion = await client.chat.completions.create(
-        #     messages=[
-        #         {
-        #             "role": "user",
-        #             "content": "i am leo who are u ",
-        #         }
-        #     ],
-        #     model="gpt-3.5-turbo",
-        # )
-
-
+    # asyncio.run(LLM.test(title,content))
+    # llm = {"tags":["其他"]}
+    # regex = {"tags":["獎助學金"]}
+    # print(LLM.combine(llm,regex))
+    # llm = {"tags":["其他"]}
+    # regex = {"tags":[]}
+    # LLM.combine(llm,regex)
+    # llm = {"tags":["學校舉辦活動"]}
+    # regex = {"tags":["獎助學金"]}
+    # LLM.combine(llm,regex)
+    # llm = {"tags":["學校舉辦活動"]}
+    # regex = {"tags":['獎助學金','機車']}
+    # print(LLM.combine(llm,regex))
     
+    unittest.main()
+    # import pprint
+    # print(pprint.pprint(get_label_table()))
+
