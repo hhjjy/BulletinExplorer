@@ -21,23 +21,37 @@ from dotenv import load_dotenv
 import subprocess
 import asyncio
 import scraper
-load_dotenv()
 
+load_dotenv(dotenv_path='../.env')
 # make sure you have run the following command before testing!
 # ssh -L 65432:localhost:65432 mitlab@140.118.2.52 -p 33700
 # uvicorn api:app --reload
 from log_config import setup_logger
 import logging,traceback
 logger = setup_logger("api_service", log_level=logging.DEBUG)
+mode = os.getenv("DEV_OR_MAIN")  # 默認為開發環境 
+if mode == "main" or mode == "MAIN":# dev 
+    print("MAIN MODE")
+    db_config = {
+            "database": os.getenv("POSTGRES_MAIN_DB"),
+            "user": os.getenv("POSTGRES_MAIN_USER"),
+            "password": os.getenv("POSTGRES_MAIN_PASSWORD"),
+            "host": os.getenv("POSTGRES_MAIN_HOST"),
+            "port": os.getenv("POSTGRES_MAIN_PORT")
+        }
+else:
+    print(f"Unrecognized mode: {mode}. Defaulting to DEVELOPMENT MODE.")
+    print("DEV MODE ")
+    db_config = {
+        "database": os.getenv("POSTGRES_DEV_DB"),
+        "user": os.getenv("POSTGRES_DEV_USER"),
+        "password": os.getenv("POSTGRES_DEV_PASSWORD"),
+        "host": os.getenv("POSTGRES_DEV_HOST"),
+        "port": os.getenv("POSTGRES_DEV_PORT")
+    }
+    
 
-db_config = {
-    "database": os.getenv("POSTGRES_DB"),
-    "user": os.getenv("POSTGRES_USER"),
-    "password": os.getenv("POSTGRES_PASSWORD"),
-    "host": "MyPostgres",
-    "port": "5432"
-}
-
+# print(db_config)
 app = FastAPI()
 
 # 加入 CORSMiddleware 以處理跨來源請求
@@ -67,7 +81,13 @@ class PostIn(BaseModel):
     title: str
     url: str
     content: str
-
+# LLM save llm labels 
+class LabelSaveDB(BaseModel):
+    rawid:str
+    labelid:str 
+# LLM get label define 
+#SELECT * FROM label LIMIT 100
+    
 class NewUser(BaseModel):
     name: str
     chatid: str
@@ -207,7 +227,6 @@ def fetch_data(publisher: str, keywords: str, numbers: int, start_date: str, end
     cursor = connection.cursor()
     SQL_query ,params = create_sql_query(publisher, keywords, numbers, start_date, end_date, table)
     query = sql.SQL(SQL_query)
-    cursor.execute(query, params)
     records = cursor.fetchall()
     if connection:
         cursor.close()
@@ -393,6 +412,32 @@ async def get_processed_table(post: GetProcessedTable):
         return JSONResponse(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"error": str(Error),"detail":error_traceback},
+        )
+
+# requests.post(f"{self.api_endpoint}/llm/save_label", json=response_dict)
+class processtable(BaseModel):
+    rawid:int 
+    labelid:int
+
+@app.post('/llm/save_label')
+async def save_label(input:processtable):
+    try:
+        rawid = input.rawid
+        labelid = input.labelid
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+        cursor.execute("INSERT INTO bulletinprocessed (rawid, labelid) VALUES (%s, %s)", (rawid, labelid))
+        if connection:
+            cursor.close()
+            connection.close()
+        return {"message":"Label ID INSERT SUCESSFULLY!","detail":""}
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"message": str(Error),"detail":error_traceback},
         )
 
 # 取得label table整個資料表
@@ -693,7 +738,6 @@ async def get_newdata():
             connection.close()
 
 
-
 @app.post("/llm/get_unprocessed_data", response_model=List[DataForLLM])
 async def get_unprocessed_data():
     try:
@@ -901,6 +945,10 @@ async def start_scraper():
         )
 
 if __name__ == "__main__":
- 
-    data = fetch_data(None, 5,'2024-01-01',None)
-    pprint(data)
+    # print("1234")
+    # connection = psycopg2.connect(**db_config)
+    print(db_config)
+    # app_env = os.getenv("APP_ENV", "DEV_OR_MAIN")  # 默认为开发环境
+    # print(app_env)
+    # data = fetch_data(None, 5,'2024-01-01',None)
+    # pprint(data)
