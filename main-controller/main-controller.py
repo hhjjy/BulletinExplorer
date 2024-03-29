@@ -10,10 +10,24 @@ import telegram
 import copy
 from decimal import Decimal
 from dotenv import load_dotenv
+
+
 load_dotenv()
+mode = os.getenv("DEV_OR_MAIN")  # 默認為開發環境
+if mode == "main" or mode == "MAIN":# dev
+    print("MAIN MODE")
+    API_server =  "http://"+os.getenv("API_MAIN_HOST")+":"+os.getenv("API_MAIN_PORT")
+    print(f"LLM API SERVER :{API_server}")
+else:
+    print(f"Defaulting to DEVELOPMENT MODE.")
+    print("DEV MODE ")
+    print(os.getenv("API_DEV_HOST"))
+    API_server =  "http://"+os.getenv("API_DEV_HOST")+":"+os.getenv("API_DEV_PORT")
+    print(f"LLM API SERVER :{API_server}")
+
+
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
-API_server = "http://API:8000"
 register_user = API_server + "/bot/register_user"
 delete_subscription = API_server + "/bot/delete_subscription"
 add_subscription = API_server + "/bot/add_subscription"
@@ -66,8 +80,8 @@ async def llm(context: ContextTypes.DEFAULT_TYPE) -> None:
         }
         response = requests.post(url, json=data)
 
-        #url = start_llm
-        #response = requests.post(url)
+        url = start_llm
+        response = requests.post(url)
 
 
 
@@ -193,7 +207,8 @@ def main() -> None:
     application = Application.builder().token(TOKEN).post_init(post_init).post_stop(post_stop).build()
     job_queue = application.job_queue
     job_minute = job_queue.run_repeating(update_user, interval=30, first=3)
-    job_minute = job_queue.run_repeating(scraper, interval=5, first=3)
+    job_minute = job_queue.run_repeating(scraper, interval=15, first=3)
+    job_minute = job_queue.run_repeating(llm, interval=15, first=3)
 
 
     application.add_handler(CommandHandler(["start", "help"], start))
