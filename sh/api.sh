@@ -1,5 +1,5 @@
 #!/bin/bash
-source ../.env
+. ../.env
 HOST=$API_DEV_HOST
 PORT=$API_DEV_PORT
 MODE="DEVELOPMENT"
