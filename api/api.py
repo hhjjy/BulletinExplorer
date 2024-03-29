@@ -43,11 +43,11 @@ else:
     print(f"Unrecognized mode: {mode}. Defaulting to DEVELOPMENT MODE.")
     print("DEV MODE ")
     db_config = {
-        "database": "mydb",
-        "user": "admin",
-        "password": "12345",
-        "host": "localhost",
-        "port": "65432"
+        "database": os.getenv("POSTGRES_DEV_DB"),
+        "user": os.getenv("POSTGRES_DEV_USER"),
+        "password": os.getenv("POSTGRES_DEV_PASSWORD"),
+        "host": os.getenv("POSTGRES_DEV_HOST"),
+        "port": os.getenv("POSTGRES_DEV_PORT")
     }
     
 

@@ -80,8 +80,8 @@ async def llm(context: ContextTypes.DEFAULT_TYPE) -> None:
         }
         response = requests.post(url, json=data)
 
-        #url = start_llm
-        #response = requests.post(url)
+        url = start_llm
+        response = requests.post(url)
 
 
 
@@ -207,7 +207,8 @@ def main() -> None:
     application = Application.builder().token(TOKEN).post_init(post_init).post_stop(post_stop).build()
     job_queue = application.job_queue
     job_minute = job_queue.run_repeating(update_user, interval=30, first=3)
-    job_minute = job_queue.run_repeating(scraper, interval=5, first=3)
+    job_minute = job_queue.run_repeating(scraper, interval=15, first=3)
+    job_minute = job_queue.run_repeating(llm, interval=15, first=3)
 
 
     application.add_handler(CommandHandler(["start", "help"], start))
