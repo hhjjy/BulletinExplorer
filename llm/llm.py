@@ -5,7 +5,18 @@ import logging,traceback
 from openai import AsyncOpenAI
 
 load_dotenv()
-api_link = os.getenv("API_HOST")+os.getenv("API_PORT")
+mode = os.getenv("DEV_OR_MAIN")  # 默認為開發環境 
+if mode == "main" or mode == "MAIN":# dev 
+    print("MAIN MODE")
+    API_server =  "http://"+os.getenv("API_MAIN_HOST")+":"+os.getenv("API_MAIN_PORT")
+    print(f"LLM API SERVER :{API_server}")
+else:
+    print(f"Defaulting to DEVELOPMENT MODE.")
+    print("DEV MODE ")
+    API_server =  "http://"+os.getenv("API_DEV_HOST")+":"+os.getenv("API_DEV_PORT")
+    print(f"LLM API SERVER :{API_server}")
+
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("请设置 OPENAI_API_KEY 环境变量。")
@@ -16,7 +27,7 @@ client = AsyncOpenAI(
 # label table的所有資料
 label_table = None
 def get_label_table():
-    response = requests.post(f"http://{api_link}/llm/get_label_table")
+    response = requests.post(f"{API_server}/llm/get_label_table")
     label_table = response.json()  # 將 JSON 格式的回應轉換為 dict
     return label_table
 def find_labelid(label_define, labelname):
@@ -164,37 +175,46 @@ class LLMService:
  
     async def execute(self):
         # Fetch unprocessed bulletins
-        bulletins_response = requests.post(f"{self.api_endpoint}/llm/get_unprocessed_bulletin")
+        bulletins_response = requests.post(f"{self.api_endpoint}/llm/get_unprocessed_data")
         bulletins = bulletins_response.json()
+        logger.info(f"總共發現{len(bulletins)}筆新資料！！")
         label_define = get_label_table() 
-        for bulletin in bulletins:
-            rawid = bulletin['rawid']
-            title = bulletin['title']
-            content = bulletin['content']
+        for i,bulletin in enumerate(bulletins,start=1):
+            # print(bulletin)
+            rawid = bulletin.get('rawid')
+            title = bulletin.get('title')
+            content = bulletin.get('content')
+            logger.info(f"處理第{i}筆資料,rawid:{rawid}")
             # Classify content using three different LLMs and perform voting
-            lables = self.classify_and_vote(title, content)
-
+            labels = await self.classify_and_vote(title, content)
             # Post labels back to the API
-            for tag in lables.get('tags'):
+            for tag in labels.get('tags'):
                 label_id = find_labelid(label_define, tag)
                 response_dict = {'rawid': rawid, 'labelid': label_id}
-                requests.post(f"{self.api_endpoint}/llm/save_label", json=response_dict)
-
+                requests.post(f"{API_server}/llm/save_label", json=response_dict)
+            
         # Report finishing
         # requests.post(f"{self.api_endpoint}/llm/report_finishing")
 
     @staticmethod
     def extract_json_from_response(response: str) -> dict:
-        # logger.info(f"input : {response}")
-        """从字符串中提取 JSON 并返回字典"""
-        # 匹配被 ```json\n 和 ``` 包裹的，或直接以 { 开头直到 } 结尾（考虑嵌套的情况）的 JSON 字符串
-        pattern = r'```json\n([\s\S]*?)```|(\{[\s\S]*?\}(?![\s\S]*\}))'
-        matches = re.search(pattern, response, re.DOTALL)
-        # 如果匹配到被 ``` 包裹的 JSON，使用第一个匹配组；否则，使用第二个匹配组
-        json_content_str = matches.group(1) if matches.group(1) else (matches.group(2) if matches.group(2) else '{"tags": ["其他"]}')
-        response_dict = json.loads(json_content_str)
-        logger.info(f"output : {response_dict}")
-        return response_dict
+        try:
+            # logger.info(f"input : {response}")
+            """从字符串中提取 JSON 并返回字典"""
+            # 匹配被 ```json\n 和 ``` 包裹的，或直接以 { 开头直到 } 结尾（考虑嵌套的情况）的 JSON 字符串
+            pattern = r'```json\n([\s\S]*?)```|(\{[\s\S]*?\}(?![\s\S]*\}))'
+            matches = re.search(pattern, response, re.DOTALL)
+            # 如果匹配到被 ``` 包裹的 JSON，使用第一个匹配组；否则，使用第二个匹配组
+            json_content_str = matches.group(1) if matches.group(1) else (matches.group(2) if matches.group(2) else '{"tags": ["其他"]}')
+            response_dict = json.loads(json_content_str)
+            # logger.info(f"output : {response_dict}")
+            return response_dict
+        except Exception as Error:
+            error_message = "無法解析LLM輸出結果！ {}".format(str(Error))
+            error_traceback = traceback.format_exc()
+            logger.error("%s\n%s", error_message, error_traceback)
+            logger.info(f"input : {response}")
+            return {"tags":["其他"]}
     
     async def classify_and_vote(self,title,content):
         # 1. 正則表達式找確定標籤 
@@ -282,7 +302,7 @@ class TestLabelVoter(unittest.TestCase):
 
 class TestAPI(unittest.TestCase):
     def save_label_inital(self):
-        api = f"http://{api_link}/llm/save_label"
+        api = f"{API_server}/llm/save_label"
         data = {"rawid":1,"labelname":"餐點"}
         expect = {"message":"Label ID INSERT SUCESSFULLY!","detail":""}
         response = requests.post(api,json=data)
@@ -290,7 +310,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(response.json(), expect)
     
     def save_label_same(self):
-        api = f"http://{api_link}/llm/save_label"
+        api = f"{API_server}/llm/save_label"
         data = {"rawid":1,"labelname":"餐點"}
         expect = {"message":"Label ID INSERT SUCESSFULLY!","detail":""}
         response = requests.post(api,json=data)
@@ -302,24 +322,11 @@ if __name__ == '__main__':
     # llm_classify("【學務處生輔組】112-2新增【校外】、【自辦】獎助學金，詳見獎學金網頁/最新消息。","© Copyright (c) NTUST 2020© 學務處生活輔導組電話：(02)2730-3760© 系統開發及維護：電子計算機中心")
 # content='### 指令操作：\n\n#### 段落分割：\n- 段落1：【學務處生輔組】112-2新增【校外】、【自辦】獎助學金，詳見獎學金網頁/最新消息。\n- 段落2：© Copyright (c) NTUST 2020© 學務處生活輔導組電話：(02)2730-3760© 系統開發及維護：電子計算機中心\n\n#### 主旨分析：\n- 段落1主旨：學務處生輔組在112-2學期新增了校外和自辦的獎助學金，詳細信息可以在獎學金網頁的最新消息中查看。\n- 段落2主旨：版權所有，學務處生活輔導組的聯絡電話和系統開發及維護單位的信息。\n\n#### 摘要提取：\n- 段落1摘要：112-2學期新增校外和自辦的獎助學金，詳情請查看獎學金網頁的最新消息。\n- 段落2摘要：學務處生活輔導組的聯絡電話為(02)2730-3760，系統由電子計算機中心開發及維護。\n\n#### 標籤匹配：\n- 段落1標籤：學校舉辦活動\n- 段落2標籤：其他\n\n### 指令操作：\n\n#### 標籤合併：\n- 學校舉辦活動、其他\n\n#### JSON格式輸出：\n```json\n{\n    "tags": ["學校舉辦活動", "其他"]\n}\n```'
     # print(get_dict_from_str(content))
-    LLM = LLMService(f"http://{api_link}")
-    title = "【學務處生輔組】112-2新增【校外】、【自辦】獎助學金，詳見獎學金網頁/最新消息。"
-    content = "© Copyright (c) NTUST 2020© 學務處生活輔導組電話：(02)2730-3760© 系統開發及維護：電子計算機中心"
-    # asyncio.run(LLM.test(title,content))
-    # llm = {"tags":["其他"]}
-    # regex = {"tags":["獎助學金"]}
-    # print(LLM.combine(llm,regex))
-    # llm = {"tags":["其他"]}
-    # regex = {"tags":[]}
-    # LLM.combine(llm,regex)
-    # llm = {"tags":["學校舉辦活動"]}
-    # regex = {"tags":["獎助學金"]}
-    # LLM.combine(llm,regex)
-    # llm = {"tags":["學校舉辦活動"]}
-    # regex = {"tags":['獎助學金','機車']}
-    # print(LLM.combine(llm,regex))
+    LLM = LLMService(f"{API_server}")
+    asyncio.run(LLM.execute())
+
+
     
-    unittest.main()
-    # import pprint
-    # print(pprint.pprint(get_label_table()))
+    
+
 

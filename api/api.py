@@ -430,14 +430,17 @@ class processtable(BaseModel):
 @app.post('/llm/save_label')
 async def save_label(input:processtable):
     try:
+        logger.info(f"input:{input}")
         rawid = input.rawid
         labelid = input.labelid
         connection = psycopg2.connect(**db_config)
         cursor = connection.cursor()
         cursor.execute("INSERT INTO bulletinprocessed (rawid, labelid) VALUES (%s, %s)", (rawid, labelid))
+        connection.commit() # commit 很重要！
         if connection:
             cursor.close()
             connection.close()
+        logger.info(f"output:成功插入！")
         return {"message":"Label ID INSERT SUCESSFULLY!","detail":""}
     except Exception as Error:
         error_message = "Error occurred: {}".format(str(Error))
