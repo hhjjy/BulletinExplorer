@@ -3,10 +3,23 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from pprint import pprint
-import json
+import json,os
+from dotenv import load_dotenv
+from log_config import setup_logger
 
+load_dotenv()
+logger = setup_logger("scraper_service")
+mode = os.getenv("DEV_OR_MAIN")  # 默認為開發環境 
+if mode == "main" or mode == "MAIN":# dev 
+    logger.info("MAIN MODE")
+    API_server =  "http://"+os.getenv("API_MAIN_HOST")+":"+os.getenv("API_MAIN_PORT")
+    logger.info(f"Scraper API SERVER :{API_server}")
+else:
+    logger.info(f"Defaulting to DEVELOPMENT MODE.")
+    logger.info("DEV MODE ")
+    API_server =  "http://"+os.getenv("API_DEV_HOST")+":"+os.getenv("API_DEV_PORT")
+    logger.info(f"Scraper API SERVER :{API_server}")
 
-API_server = "http://localhost:8000"
 save_bulletin = API_server + "/scraper/save_bulletin"
 delete_event = API_server + "/scraper/delete_event"
 
@@ -40,6 +53,7 @@ class Scraper(ABC):
         pass
 # 台科大公佈欄爬蟲
 # https://bulletin.ntust.edu.tw/p/403-1045-1391-1.php?Lang=zh-tw
+# https://bulletin.ntust.edu.tw/p/403-1045-1391-1.php?Lang=zh-tw
 class NTUSTBulletinScraper(Scraper):
     def scrape(self):
         response = requests.get(self.url)
@@ -47,7 +61,6 @@ class NTUSTBulletinScraper(Scraper):
         table = soup.find("table")# 找table 標籤 
         thead = table.find("thead")# 從table 找第一個匹配的
         tbody = table.find("tbody")# 從table找第一個匹配的
-
         # # Process the table one row at a time
         i = 1
         
@@ -121,16 +134,19 @@ def SaveBulletin(data):
 
 def scrape():
     #should add running event
+    logger.info("開始爬蟲！")
+    logger.info("爬取：內網")
     Scrape = ScraperFactory.get_scraper(NTUST_INSIDE_URL)
     data = Scrape.scrape()
     SaveBulletin(data)
-
+    logger.info("爬取：語言中心")
     Scrape = ScraperFactory.get_scraper(NTUST_LANG_URL)
     data = Scrape.scrape()
     SaveBulletin(data)
-
+    logger.info("爬取：外網")
     Scrape = ScraperFactory.get_scraper(NTUST_OUTSIDE_URL)
     data = Scrape.scrape()
+    logger.info("儲存資料")
     SaveBulletin(data)
 
     url = delete_event
@@ -138,6 +154,7 @@ def scrape():
         "function": "scraper",
         "status": "2"
     }
+    logger.info("回報系統")
     response = requests.post(url, json=data)
 
 if __name__ == '__main__':

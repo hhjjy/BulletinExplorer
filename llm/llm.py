@@ -173,29 +173,37 @@ class LLMService:
         return j
     
  
-    async def execute(self):
+    async def execute(self,max_data=1):
+        # async def execute(self,max_data=1):
+
         # Fetch unprocessed bulletins
         bulletins_response = requests.post(f"{self.api_endpoint}/llm/get_unprocessed_data")
         bulletins = bulletins_response.json()
-        logger.info(f"總共發現{len(bulletins)}筆新資料！！")
+        logger.info(f"總共發現{len(bulletins)}筆新資料！！,這次最多可以處理{max_data}筆資料")
         label_define = get_label_table() 
         for i,bulletin in enumerate(bulletins,start=1):
-            # print(bulletin)
-            rawid = bulletin.get('rawid')
-            title = bulletin.get('title')
-            content = bulletin.get('content')
-            logger.info(f"處理第{i}筆資料,rawid:{rawid}")
-            # Classify content using three different LLMs and perform voting
-            labels = await self.classify_and_vote(title, content)
-            # Post labels back to the API
-            for tag in labels.get('tags'):
-                label_id = find_labelid(label_define, tag)
-                response_dict = {'rawid': rawid, 'labelid': label_id}
-                requests.post(f"{API_server}/llm/save_label", json=response_dict)
-            
+            if max_data - i >=0 :
+                # print(bulletin) 
+                rawid = bulletin.get('rawid')
+                title = bulletin.get('title')
+                content = bulletin.get('content')
+                logger.info(f"處理第{i}筆資料,rawid:{rawid}")
+                # Classify content using three different LLMs and perform voting
+                labels = await self.classify_and_vote(title, content)
+                # Post labels back to the API
+                for tag in labels.get('tags'):
+                    label_id = find_labelid(label_define, tag)
+                    response_dict = {'rawid': rawid, 'labelid': label_id}
+                    requests.post(f"{API_server}/llm/save_label", json=response_dict)
+            else :
+                logger.info(f"llm 處完{max_data}筆資料，停止運行！")
+                break 
         # Report finishing
         # requests.post(f"{self.api_endpoint}/llm/report_finishing")
 
+
+
+    
     @staticmethod
     def extract_json_from_response(response: str) -> dict:
         try:
@@ -319,11 +327,8 @@ class TestAPI(unittest.TestCase):
         
 
 if __name__ == '__main__':
-    # llm_classify("【學務處生輔組】112-2新增【校外】、【自辦】獎助學金，詳見獎學金網頁/最新消息。","© Copyright (c) NTUST 2020© 學務處生活輔導組電話：(02)2730-3760© 系統開發及維護：電子計算機中心")
-# content='### 指令操作：\n\n#### 段落分割：\n- 段落1：【學務處生輔組】112-2新增【校外】、【自辦】獎助學金，詳見獎學金網頁/最新消息。\n- 段落2：© Copyright (c) NTUST 2020© 學務處生活輔導組電話：(02)2730-3760© 系統開發及維護：電子計算機中心\n\n#### 主旨分析：\n- 段落1主旨：學務處生輔組在112-2學期新增了校外和自辦的獎助學金，詳細信息可以在獎學金網頁的最新消息中查看。\n- 段落2主旨：版權所有，學務處生活輔導組的聯絡電話和系統開發及維護單位的信息。\n\n#### 摘要提取：\n- 段落1摘要：112-2學期新增校外和自辦的獎助學金，詳情請查看獎學金網頁的最新消息。\n- 段落2摘要：學務處生活輔導組的聯絡電話為(02)2730-3760，系統由電子計算機中心開發及維護。\n\n#### 標籤匹配：\n- 段落1標籤：學校舉辦活動\n- 段落2標籤：其他\n\n### 指令操作：\n\n#### 標籤合併：\n- 學校舉辦活動、其他\n\n#### JSON格式輸出：\n```json\n{\n    "tags": ["學校舉辦活動", "其他"]\n}\n```'
-    # print(get_dict_from_str(content))
     LLM = LLMService(f"{API_server}")
-    asyncio.run(LLM.execute())
+    asyncio.run(LLM.execute(max_data=1))
 
 
     
