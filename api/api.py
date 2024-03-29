@@ -954,7 +954,27 @@ async def start_scraper():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"error": str(Error),"detail":error_traceback},
         )
+@app.post("/api/start_llm")
+async def start_llm():
+    try:
+        logger.info("Start LLM")
+        # 注意：这里我们使用相对路径从api.py的位置导航到llm.py的位置
+        # 根据您的实际部署情况，您可能需要调整这个路径
+        process = subprocess.Popen(
+            ["python3", "../llm/llm.py"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        # 不等待process完成，直接返回响应
+        return {"message": "LLM process started."}
 
+    except Exception as Error:
+        error_message = f"Error occurred: {str(Error)}"
+        logger.error(error_message, exc_info=True)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error)}
+        )
 if __name__ == "__main__":
     # print("1234")
     # connection = psycopg2.connect(**db_config)
