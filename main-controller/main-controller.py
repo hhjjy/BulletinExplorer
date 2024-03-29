@@ -37,6 +37,7 @@ get_user = API_server + "/bot/get_user"
 get_event_status = API_server + "/bot/get_event_status"
 start_event = API_server + "/bot/start_event"
 start_scraper = API_server + "/api/start_scraper"
+start_llm = API_server + "/api/start_llm"
 delete_event = API_server + "/scraper/delete_event"
 
 user = []

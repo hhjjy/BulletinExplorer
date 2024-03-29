@@ -218,10 +218,12 @@ class LLMService:
             # logger.info(f"output : {response_dict}")
             return response_dict
         except Exception as Error:
+
             error_message = "無法解析LLM輸出結果！ {}".format(str(Error))
             error_traceback = traceback.format_exc()
-            logger.error("%s\n%s", error_message, error_traceback)
-            logger.info(f"input : {response}")
+            logger.error(f"輸入字串 : {response}")
+            logger.error(f"解析字串 : {json_content_str}")
+            logger.error("問題 : %s\n%s", error_message, error_traceback)
             return {"tags":["其他"]}
     
     async def classify_and_vote(self,title,content):
