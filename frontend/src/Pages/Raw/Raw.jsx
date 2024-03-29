@@ -2,17 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DateRangePicker } from 'rsuite';
 import 'rsuite/DateRangePicker/styles/index.css';
-import './Label.css';
+import isAfter from 'date-fns/isAfter';
+import './Raw.css';
 
-function Label() {
+function Raw() {
     const location = useLocation();
     useEffect(() => {
-        document.title = "Label Page";
+        document.title = "Raw Page";
     }, [location]);
 
     const [Data, setData] = useState([]); // 顯示在頁面上的資料
     const [KeywordsSearch, setKeywordsSearch] = useState(''); // 儲存搜尋內文關鍵字欄位的資料
-    // const [ShowContext, setShowContext] = useState([]); // 顯示表格的內文欄位
+    const [ShowContext, setShowContext] = useState([]); // 顯示表格的內文欄位
     const [DataTotalNumber, setDataTotalNumber] = useState(2); // 儲存搜尋比數
     const [DateRange, setDateRange] = useState([null, null]); // 儲存搜尋日期範圍
     const [SelecteOption, setSelecteOption] = useState(''); // 下拉式選單資料
@@ -76,7 +77,7 @@ function Label() {
         }
 
         setData(jsonData);
-        // setShowContext([]);
+        setShowContext([]);
     };
 
     // 儲存搜尋日期範圍
@@ -98,22 +99,22 @@ function Label() {
         return formattedDateTime;
     };
 
-    // // 收起/展開 表格的內文欄位
-    // const handleShowContext = (index) => {
-    //     const newShowContext = [...ShowContext];
-    //     if (newShowContext.includes(index)) { // 如果已經展開，則收起
-    //         const indexToRemove = newShowContext.indexOf(index);
-    //         newShowContext.splice(indexToRemove, 1);
-    //     } else { // 如果尚未展開，則展開
-    //         newShowContext.push(index);
-    //     }
-    //     setShowContext(newShowContext);
-    // };
+    // 收起/展開 表格的內文欄位
+    const handleShowContext = (index) => {
+        const newShowContext = [...ShowContext];
+        if (newShowContext.includes(index)) { // 如果已經展開，則收起
+            const indexToRemove = newShowContext.indexOf(index);
+            newShowContext.splice(indexToRemove, 1);
+        } else { // 如果尚未展開，則展開
+            newShowContext.push(index);
+        }
+        setShowContext(newShowContext);
+    };
 
     // 抓取後端 API 資料
     const FetchAPI = async (requestData) => {
         try {
-            const response = await fetch('http://127.0.0.1:8000/frontend/get_processed_table', {
+            const response = await fetch('http://localhost:8003/frontend/get_bulletin', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -138,7 +139,6 @@ function Label() {
         const fetchData = async () => {
             try {
                 const requestData = {
-                    search_label: "社會實踐",
                     numbers: 2
                 };
 
@@ -159,7 +159,7 @@ function Label() {
                 <div className="NTUST">NTUST</div>
                 <div className="searh">
                     <label htmlFor="SelecteOption">搜尋位置:</label>
-                    <select value={SelecteOption} onChange={handleSelecteOption} class="SelecteOption">
+                    <select value={SelecteOption} onChange={handleSelecteOption} className="SelecteOption">
                         {options.map((option, index) => (
                             <option key={index} value={option}>
                                 {option}
@@ -181,6 +181,7 @@ function Label() {
                         value={DateRange}
                         onChange={handleChange}
                         format="yyyy-MM-dd"
+                        shouldDisableDate={date => isAfter(date, new Date())}
                     />
 
                     <label htmlFor="DataTotalNumber">數量:</label>
@@ -215,12 +216,12 @@ function Label() {
                                     <a href={item.url} target="_blank" rel="noopener noreferrer">
                                         {item.title}
                                     </a>
-                                    {/*<button className="button_context" onClick={() => handleShowContext(index)}>
+                                    <button className="button_context" onClick={() => handleShowContext(index)}>
                                         {ShowContext.includes(index) ? '收起內文' : '展開內文'}
-                                    </button>*/}   
+                                    </button>
                                 </td>
                             </tr>
-                            {/*{ShowContext.includes(index) && (
+                            {ShowContext.includes(index) && (
                                 <tr>
                                     <td></td>
                                     <td>內文</td>
@@ -228,7 +229,7 @@ function Label() {
                                         {item.content}
                                     </td>
                                 </tr>
-                            )}*/} 
+                            )}
                         </React.Fragment>
                     ))}
                 </tbody>
@@ -238,4 +239,4 @@ function Label() {
     );
 };
 
-export default Label;
+export default Raw;

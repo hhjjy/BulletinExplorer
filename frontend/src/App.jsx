@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-import Label from './Label';
-import Raw from './Raw';
+import Raw from './Pages/Raw/Raw.jsx';
+import Label from './Pages/Label/Label.jsx';
 
 function App() {
     return (

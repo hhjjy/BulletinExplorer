@@ -22,7 +22,7 @@ import subprocess
 import asyncio
 import scraper
 
-load_dotenv()
+load_dotenv(dotenv_path='../.env')()
 # make sure you have run the following command before testing!
 # ssh -L 65432:localhost:65432 mitlab@140.118.2.52 -p 33700
 # uvicorn api:app --reload
@@ -132,6 +132,10 @@ class GetProcessedTable(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     numbers: int = 20
+# 新增標籤後資訊
+class AddProcessedTable(BaseModel):
+    rawid: int
+    labelid: int
 # 取得label table
 class GetLabelTable(BaseModel):
     labelid: int
@@ -375,7 +379,6 @@ def get_data_by_rawid(rawids, cursor):
     return data
 
 # 取得標籤後資料
-# 須先完成前端頁面才能繼續進行
 @app.post("/frontend/get_processed_table")
 async def get_processed_table(post: GetProcessedTable):
     try:
@@ -391,11 +394,8 @@ async def get_processed_table(post: GetProcessedTable):
         connection = psycopg2.connect(**db_config)
         cursor = connection.cursor()
 
-        # if search_label:
         rawids = get_rawid_by_label(search_label, cursor)
         raw_data = get_data_by_rawid(rawids, cursor)
-        # else:
-        #     raw_data = fetch_data(publisher, keywords, numbers, start_date, end_date, "bulletinprocessed")
         
         data = [
             {
@@ -421,6 +421,60 @@ async def get_processed_table(post: GetProcessedTable):
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"error": str(Error),"detail":error_traceback},
         )
+
+# 新增標籤後資料
+@app.post("/frontend/add_processed_table")
+async def add_processed_table(post: GetProcessedTable):
+    try:
+        rawid = post.rawid
+        labelid = post.labelid
+        
+        logger.debug(f"rawid:{rawid}, labelid:{labelid}")
+        
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+
+        # 檢查要新增的的公告、標籤是否存在
+        cursor.execute("""
+            SELECT * FROM bulletinprocessed
+            WHERE rawid = %s AND labelid = %s
+        """, (rawid, labelid))
+        existing_post = cursor.fetchone()
+
+        if existing_post:
+            # 修改公告資料
+            cursor.execute("""
+                UPDATE bulletinraw
+                SET publisher = %s, title = %s, url = %s, content = %s
+                WHERE rawid = %s
+            """, (post.publisher, post.title, post.url, post.content, rawid))
+            connection.commit()
+            logger.info(f"Modification in progress")
+            return {"message": "Data already exist"}
+        else:
+            # 如果公告不存在，則新增標籤後資料
+            
+
+
+
+
+        if connection:
+            cursor.close()
+            connection.close()
+            print("PostgreSQL connection is closed")
+
+        return data
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+
+
+
 
 # requests.post(f"{self.api_endpoint}/llm/save_label", json=response_dict)
 class processtable(BaseModel):
