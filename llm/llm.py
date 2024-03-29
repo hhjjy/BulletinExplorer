@@ -179,7 +179,7 @@ class LLMService:
         # Fetch unprocessed bulletins
         bulletins_response = requests.post(f"{self.api_endpoint}/llm/get_unprocessed_data")
         bulletins = bulletins_response.json()
-        logger.info(f"總共發現{len(bulletins)}筆新資料！！,這次會處理{max_data}筆資料")
+        logger.info(f"總共發現{len(bulletins)}筆新資料！！,這次最多可以處理{max_data}筆資料")
         label_define = get_label_table() 
         for i,bulletin in enumerate(bulletins,start=1):
             if max_data - i >=0 :
