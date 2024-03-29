@@ -2,23 +2,34 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DateRangePicker } from 'rsuite';
 import 'rsuite/DateRangePicker/styles/index.css';
-import './Raw.css';
+import isAfter from 'date-fns/isAfter';
+import './Label.css';
 
-function Raw() {
+function Label() {
     const location = useLocation();
     useEffect(() => {
-        document.title = "Raw Page";
+        document.title = "Label Page";
     }, [location]);
 
     const [Data, setData] = useState([]); // 顯示在頁面上的資料
     const [KeywordsSearch, setKeywordsSearch] = useState(''); // 儲存搜尋內文關鍵字欄位的資料
-    const [ShowContext, setShowContext] = useState([]); // 顯示表格的內文欄位
     const [DataTotalNumber, setDataTotalNumber] = useState(2); // 儲存搜尋比數
     const [DateRange, setDateRange] = useState([null, null]); // 儲存搜尋日期範圍
-    const [SelecteOption, setSelecteOption] = useState(''); // 下拉式選單資料
+    const [SelecteOption, setSelecteOption] = useState(''); // 搜尋位置下拉式選單資料
+
+    const [LabelList, setLabelList] = useState("餐點");
 
     // 定義選項列表
-    const options = ['ALL', '發布單位', '內文'];
+    const publisher_options = ['ALL', '發布單位', '內文'];
+    const label_list_options = ['餐點', '自我認識', '考試', '學習技能', '體育活動', '學校舉辦活動',
+                                 '英文學分', '付費或繳款', '社會實踐', '機車車位', '獎助學金', '座談會',
+                                 '演講', '工作坊', '選課時間', '行事曆發布', '停水', '停電',
+                                 '斷網', '宿舍訊息', '禮卷', '抽獎', '實習機會'];
+    // 處理標籤選單變更
+    const handleLabelList = (label) => {
+        setLabelList(label);
+        console.log(label);
+    };
 
     // 處理選項變更事件
     const handleSelecteOption = (event) => {
@@ -61,12 +72,14 @@ function Raw() {
         }
 
         const requestData = {
+            search_label: LabelList,
             publisher: null,
             keywords: KeywordsSearch || null,
             start_date: formattedStartDate || null,
             end_date: formattedEndDate || null,
             numbers: DataTotalNumber
         };
+        // console.log(requestData);
 
         jsonData = await FetchAPI(requestData);
 
@@ -76,7 +89,7 @@ function Raw() {
         }
 
         setData(jsonData);
-        setShowContext([]);
+        // setShowContext([]);
     };
 
     // 儲存搜尋日期範圍
@@ -98,22 +111,10 @@ function Raw() {
         return formattedDateTime;
     };
 
-    // 收起/展開 表格的內文欄位
-    const handleShowContext = (index) => {
-        const newShowContext = [...ShowContext];
-        if (newShowContext.includes(index)) { // 如果已經展開，則收起
-            const indexToRemove = newShowContext.indexOf(index);
-            newShowContext.splice(indexToRemove, 1);
-        } else { // 如果尚未展開，則展開
-            newShowContext.push(index);
-        }
-        setShowContext(newShowContext);
-    };
-
     // 抓取後端 API 資料
     const FetchAPI = async (requestData) => {
         try {
-            const response = await fetch('http://127.0.0.1:8000/frontend/get_bulletin', {
+            const response = await fetch('http://localhost:8003/frontend/get_processed_table', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -138,6 +139,7 @@ function Raw() {
         const fetchData = async () => {
             try {
                 const requestData = {
+                    search_label: "餐點",
                     numbers: 2
                 };
 
@@ -153,13 +155,13 @@ function Raw() {
 
     return (
         <div>
-            {/**/}
+            {/* */}
             <div className="navigation">
                 <div className="NTUST">NTUST</div>
                 <div className="searh">
                     <label htmlFor="SelecteOption">搜尋位置:</label>
-                    <select value={SelecteOption} onChange={handleSelecteOption} class="SelecteOption">
-                        {options.map((option, index) => (
+                    <select value={SelecteOption} onChange={handleSelecteOption} className="SelecteOption">
+                        {publisher_options.map((option, index) => (
                             <option key={index} value={option}>
                                 {option}
                             </option>
@@ -180,6 +182,7 @@ function Raw() {
                         value={DateRange}
                         onChange={handleChange}
                         format="yyyy-MM-dd"
+                        shouldDisableDate={date => isAfter(date, new Date())}
                     />
 
                     <label htmlFor="DataTotalNumber">數量:</label>
@@ -194,47 +197,48 @@ function Raw() {
                 </div>
             </div>
 
-            <table>
-                <thead>
-                    <tr>
-                        <th className="th_number">排序</th>
-                        <th className="th_addtime">日期</th>
-                        <th className="th_publisher">發布單位</th>
-                        <th className="th_title">主旨</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {Data.map((item, index) => (
-                        <React.Fragment key={index}>
-                            <tr>
-                                <td>{item.rawid}</td>
-                                <td>{formatDateTime(item.addtime)}</td>
-                                <td>{item.publisher}</td>
-                                <td>
-                                    <a href={item.url} target="_blank" rel="noopener noreferrer">
-                                        {item.title}
-                                    </a>
-                                    <button className="button_context" onClick={() => handleShowContext(index)}>
-                                        {ShowContext.includes(index) ? '收起內文' : '展開內文'}
-                                    </button>
-                                </td>
-                            </tr>
-                            {ShowContext.includes(index) && (
+            <div className='bulletin_label'>
+                <ul className="label_list">
+                    {label_list_options.map((option, index) => (
+                        <li
+                            onClick={() => handleLabelList(option)}
+                            key={index}
+                            style={{ color: LabelList === option ? 'blue' : 'initial' }}
+                        >
+                            {option}
+                        </li>
+                    ))}
+                </ul>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th className="th_number">排序</th>
+                            <th className="th_addtime">日期</th>
+                            <th className="th_publisher">發布單位</th>
+                            <th className="th_title">主旨</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {Data.map((item, index) => (
+                            <React.Fragment key={index}>
                                 <tr>
-                                    <td></td>
-                                    <td>內文</td>
-                                    <td colSpan={2}>
-                                        {item.content}
+                                    <td>{item.rawid}</td>
+                                    <td>{formatDateTime(item.addtime)}</td>
+                                    <td>{item.publisher}</td>
+                                    <td>
+                                        <a href={item.url} target="_blank" rel="noopener noreferrer">
+                                            {item.title}
+                                        </a>
                                     </td>
                                 </tr>
-                            )}
-                        </React.Fragment>
-                    ))}
-                </tbody>
-            </table>
-
+                            </React.Fragment>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 };
 
-export default Raw;
+export default Label;

@@ -132,6 +132,10 @@ class GetProcessedTable(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     numbers: int = 20
+# 新增標籤後資訊
+class AddProcessedTable(BaseModel):
+    rawid: int
+    labelid: int
 # 取得label table
 class GetLabelTable(BaseModel):
     labelid: int
@@ -232,7 +236,6 @@ def fetch_data(publisher: str, keywords: str, numbers: int, start_date: str, end
     if connection:
         cursor.close()
         connection.close()
-        print("PostgreSQL connection is closed")
     return records
 
 # 測試過中文的參數進入fastapi會自動處理不須轉換
@@ -309,7 +312,7 @@ async def delete_bulletin(rawid: int):
             connection.close()
 
 # 修改原始公告資料
-@app.post("/frontend/modify_bulletin/{rawid}")
+@app.post("/frontend/modify_bulletin")
 async def modify_bulletin(rawid: int, post: PostIn):
     logger.info(f"Modifying bulletin with rawid: {rawid}")
     try:
@@ -321,6 +324,7 @@ async def modify_bulletin(rawid: int, post: PostIn):
             SELECT * FROM bulletinraw
             WHERE rawid = %s
         """, (rawid,))
+        connection.commit()
         existing_post = cursor.fetchone()
 
         if existing_post:
@@ -329,7 +333,7 @@ async def modify_bulletin(rawid: int, post: PostIn):
                 UPDATE bulletinraw
                 SET publisher = %s, title = %s, url = %s, content = %s
                 WHERE rawid = %s
-            """, (post.publisher, post.title, post.url, post.content, rawid))
+            """, (post.publisher, post.title, post.url, post.content, rawid,))
             connection.commit()
             logger.info(f"Modification in progress")
             return {"message": "Data is being modified"}
@@ -375,7 +379,6 @@ def get_data_by_rawid(rawids, cursor):
     return data
 
 # 取得標籤後資料
-# 須先完成前端頁面才能繼續進行
 @app.post("/frontend/get_processed_table")
 async def get_processed_table(post: GetProcessedTable):
     try:
@@ -391,11 +394,8 @@ async def get_processed_table(post: GetProcessedTable):
         connection = psycopg2.connect(**db_config)
         cursor = connection.cursor()
 
-        # if search_label:
         rawids = get_rawid_by_label(search_label, cursor)
         raw_data = get_data_by_rawid(rawids, cursor)
-        # else:
-        #     raw_data = fetch_data(publisher, keywords, numbers, start_date, end_date, "bulletinprocessed")
         
         data = [
             {
@@ -410,7 +410,6 @@ async def get_processed_table(post: GetProcessedTable):
         if connection:
             cursor.close()
             connection.close()
-            print("PostgreSQL connection is closed")
 
         return data
     except Exception as Error:
@@ -421,6 +420,92 @@ async def get_processed_table(post: GetProcessedTable):
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"error": str(Error),"detail":error_traceback},
         )
+
+# 新增標籤後資料
+@app.post("/frontend/add_processed_table")
+async def add_processed_table(post: AddProcessedTable):
+    try:
+        rawid = post.rawid
+        labelid = post.labelid
+        
+        logger.debug(f"rawid:{rawid}, labelid:{labelid}")
+        
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+
+        # 檢查要新增的的公告、標籤是否存在
+        cursor.execute("""
+            SELECT * FROM bulletinprocessed
+            WHERE rawid = %s AND labelid = %s
+        """, (rawid, labelid))
+        connection.commit()
+        existing_post = cursor.fetchone()
+            
+        if existing_post:
+            # 標籤&公告已存在
+            logger.info(f"Data already exist")
+            return {"message": "Data already exist"}
+        else:
+            # 如果標籤&公告不存在，則新增標籤後資料
+            cursor.execute("""
+                INSERT INTO bulletinprocessed
+                (rawid, labelid) VALUES (%s, %s)
+            """, (rawid, labelid))
+            logger.info(f"Add rawid: {rawid}, labelid: {labelid}")
+            connection.commit()
+            return {"message": f"Add rawid: {rawid}, labelid: {labelid}"}     
+
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
+
+# 刪除標籤後資料
+@app.post("/frontend/delete_processed_table")
+async def delete_processed_table(id: int):
+    logger.info(f"Deleting data {id} from the database")
+    try:
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+
+        # 查詢公告是否存在
+        cursor.execute("""
+            DELETE FROM bulletinprocessed
+            WHERE id = %s
+            RETURNING id
+        """, (id,))
+        # 獲取刪除的行數
+        deleted_rows = cursor.rowcount
+        # 檢查是否刪除成功
+        if deleted_rows > 0:
+            connection.commit()
+            logger.info(f"Deletion completed")
+            return {"message": "Data successfully deleted"}
+        else:
+            # 如果公告不存在，則引發HTTP異常
+            raise HTTPException(status_code=404, detail="Data not found")
+
+    except Exception as Error:
+        error_message = "An error occurred during deletion: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
 
 # requests.post(f"{self.api_endpoint}/llm/save_label", json=response_dict)
 class processtable(BaseModel):

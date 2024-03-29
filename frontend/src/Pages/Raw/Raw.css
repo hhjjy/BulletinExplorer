@@ -6,7 +6,7 @@ body {
 
 /* 導航列 */
 .navigation {
-    background-color: #a1bbd4;
+    background-color: #14b37e;
     height: 70px;
     display: flex;
     justify-content: space-between;
@@ -145,7 +145,7 @@ td {
 
 /* Hover effect to table rows */
 tbody tr:hover {
-    background-color: #cfdef1;
+    background-color: #f1e5cf;
 }
 
 /* URL link */
