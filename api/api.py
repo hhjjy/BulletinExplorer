@@ -22,7 +22,7 @@ import subprocess
 import asyncio
 import scraper
 
-load_dotenv(dotenv_path='../.env')
+load_dotenv()
 # make sure you have run the following command before testing!
 # ssh -L 65432:localhost:65432 mitlab@140.118.2.52 -p 33700
 # uvicorn api:app --reload
@@ -200,7 +200,7 @@ def create_sql_query(publisher, keywords, number_data, start_date, end_date, tab
         where_date_sql = "" if start_date is None or end_date is None else f"AND ( addtime >= %s AND addtime < %s)"
         
         sql_query = f"""
-            SELECT * FROM FROM {table}
+            SELECT * FROM {table}
             WHERE ({where_sql}) {where_date_sql}
             ORDER BY addtime DESC
             LIMIT %s;
@@ -227,6 +227,7 @@ def fetch_data(publisher: str, keywords: str, numbers: int, start_date: str, end
     cursor = connection.cursor()
     SQL_query ,params = create_sql_query(publisher, keywords, numbers, start_date, end_date, table)
     query = sql.SQL(SQL_query)
+    cursor.execute(query, params)
     records = cursor.fetchall()
     if connection:
         cursor.close()
@@ -351,25 +352,30 @@ async def modify_bulletin(rawid: int, post: PostIn):
 
 # 查詢標籤對應的 rawid 函數
 def get_rawid_by_label(search_label, cursor):
-    SQL_query = sql.SQL("""
+    sql_query = f"""
         SELECT DISTINCT rawid FROM bulletinprocessed WHERE labelid = (
             SELECT labelid FROM label WHERE labelname = %s
         )
-    """)
-    cursor.execute(SQL_query, [search_label])
+    """
+    logger.debug(f"sql_query:{sql_query}, params:{search_label}")
+    cursor.execute(sql_query, [search_label])
     rawids = cursor.fetchall()
-    return [rawid[0] for rawid in rawids]
+    return [rawid[0] for rawid in rawids] if rawids else []
 
 # 取得 rawid 對應的資料函數
 def get_data_by_rawid(rawids, cursor):
-    SQL_query = sql.SQL("""
+    if not rawids:
+        return []  # 如果 rawids 為空，直接返回空列表
+    sql_query = """
         SELECT rawid, publisher, title, url FROM bulletinraw WHERE rawid IN %s
-    """)
-    cursor.execute(SQL_query, [tuple(rawids)])
+    """
+    logger.debug(f"sql_query:{sql_query}")
+    cursor.execute(sql_query, [tuple(rawids)])
     data = cursor.fetchall()
     return data
 
 # 取得標籤後資料
+# 須先完成前端頁面才能繼續進行
 @app.post("/frontend/get_processed_table")
 async def get_processed_table(post: GetProcessedTable):
     try:
@@ -379,6 +385,8 @@ async def get_processed_table(post: GetProcessedTable):
         start_date = post.start_date
         end_date = post.end_date
         numbers = post.numbers
+        
+        logger.debug(f"search_label:{search_label}, publisher:{publisher}, keywords:{keywords}, start_date:{start_date}, end_date:{end_date}, numbers:{numbers}")
         
         connection = psycopg2.connect(**db_config)
         cursor = connection.cursor()
