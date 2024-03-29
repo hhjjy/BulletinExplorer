@@ -22,7 +22,6 @@ import subprocess
 import asyncio
 import scraper
 
-# load_dotenv(dotenv_path='../.env')
 load_dotenv()
 # make sure you have run the following command before testing!
 # ssh -L 65432:localhost:65432 mitlab@140.118.2.52 -p 33700
