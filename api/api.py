@@ -1048,12 +1048,14 @@ async def start_llm():
         # 注意：这里我们使用相对路径从api.py的位置导航到llm.py的位置
         # 根据您的实际部署情况，您可能需要调整这个路径
         process = subprocess.Popen(
-            ["python3", "../llm/llm.py"],
+            ["pipenv","run","python3", "llm.py"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
+        logger.info(f"LLM process started with PID {process.pid}")
+
         # 不等待process完成，直接返回响应
-        return {"message": "LLM process started."}
+        return {"message": "LLM process started.", "pid": process.pid}
 
     except Exception as Error:
         error_message = f"Error occurred: {str(Error)}"

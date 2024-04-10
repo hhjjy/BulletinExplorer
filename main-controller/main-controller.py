@@ -37,7 +37,9 @@ get_user = API_server + "/bot/get_user"
 get_event_status = API_server + "/bot/get_event_status"
 start_event = API_server + "/bot/start_event"
 start_scraper = API_server + "/api/start_scraper"
+start_llm = API_server + "/api/start_llm"
 delete_event = API_server + "/scraper/delete_event"
+get_newdata = API_server + "/bot/get_newdata"
 
 user = []
 
@@ -82,6 +84,12 @@ async def llm(context: ContextTypes.DEFAULT_TYPE) -> None:
 
         url = start_llm
         response = requests.post(url)
+async def send_new_data(context: ContextTypes.DEFAULT_TYPE) -> None:
+    url = get_newdata
+    newdata_json = json.loads(requests.post(url).text)
+    for i in newdata_json:
+        await context.bot.send_message(chat_id=i["chatid"], text = i["url"] + "\n" + i["title"])
+        #'<a href="'+ i["url"]  +'">'+i["title"], parse_mode="HTML"
 
 
 
@@ -209,6 +217,7 @@ def main() -> None:
     job_minute = job_queue.run_repeating(update_user, interval=30, first=3)
     job_minute = job_queue.run_repeating(scraper, interval=15, first=3)
     job_minute = job_queue.run_repeating(llm, interval=15, first=3)
+    job_minute = job_queue.run_repeating(send_new_data, interval=20, first=10)
 
 
     application.add_handler(CommandHandler(["start", "help"], start))
