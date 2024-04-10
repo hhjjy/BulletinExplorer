@@ -1,5 +1,5 @@
 #!/bin/bash
-
+#you should use sudo to run this script
 sh docker-db.sh
 cd ..
 
