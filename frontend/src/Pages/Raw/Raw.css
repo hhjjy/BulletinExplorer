@@ -6,7 +6,7 @@ body {
 
 /* 導航列 */
 .navigation {
-    background-color: #14b37e;
+    background-color: #a1bbd4;
     height: 70px;
     display: flex;
     justify-content: space-between;
@@ -92,23 +92,23 @@ input,
     margin-left: 20px;
 }
 
-.th_number {
+.raw_th_number {
     width: 3%;
 }
 
-.th_addtime {
+.raw_th_addtime {
     width: 10%;
 }
 
-.th_publisher {
+.raw_th_publisher {
     width: 17%;
 }
 
-.th_title {
+.raw_th_title {
     width: 65%;
 }
 
-.th_url {
+.raw_th_url {
     width: 3%;
 }
 
@@ -118,13 +118,13 @@ input,
 
 
 /* table */
-table {
+.raw_table {
     margin: 10px auto;
     width: 100%;
 }
 
 /* table header */
-thead {
+.raw_thead {
     background-color: #5987a7;
     color: #fff;
     position: sticky;
@@ -132,20 +132,20 @@ thead {
 }
 
 /* table cells and padding */
-th {
+.raw_th {
     padding: 10px 5px 10px 5px;
     border: 1px solid #ddd;
     font-size: 20px;
 }
 
-td {
+.raw_td {
     padding: 10px;
     border: 1px solid #ddd;
 }
 
 /* Hover effect to table rows */
-tbody tr:hover {
-    background-color: #f1e5cf;
+.raw_tbody tr:hover {
+    background-color: #cfdef1;
 }
 
 /* URL link */

@@ -13,7 +13,6 @@ function Label() {
 
     const [Data, setData] = useState([]); // 顯示在頁面上的資料
     const [KeywordsSearch, setKeywordsSearch] = useState(''); // 儲存搜尋內文關鍵字欄位的資料
-    const [DataTotalNumber, setDataTotalNumber] = useState(2); // 儲存搜尋比數
     const [DateRange, setDateRange] = useState([null, null]); // 儲存搜尋日期範圍
     const [SelecteOption, setSelecteOption] = useState(''); // 搜尋位置下拉式選單資料
 
@@ -28,8 +27,12 @@ function Label() {
     // 處理標籤選單變更
     const handleLabelList = (label) => {
         setLabelList(label);
-        console.log(label);
     };
+
+    // 變更標籤選單
+    useEffect(() => {
+        handleDataSearchResult();
+    }, [LabelList]);
 
     // 處理選項變更事件
     const handleSelecteOption = (event) => {
@@ -39,12 +42,6 @@ function Label() {
     // Search 欄位
     const handleDataSearch = (e) => {
         setKeywordsSearch(e.target.value);
-    };
-
-    // 每次抓取幾筆資料
-    const handleDataTotalNumber = (e) => {
-        const value = parseInt(e.target.value, 10);
-        setDataTotalNumber(value);
     };
 
     // 將搜尋欄的日期格式轉換為 'yyyy-MM-dd'
@@ -57,11 +54,6 @@ function Label() {
 
     // Result Button 按下後更動顯示資料 Data
     const handleDataSearchResult = async () => {
-        if (DataTotalNumber === 0 || DataTotalNumber > 200) {
-            alert('數量需在 1 ~ 200 之間');
-            return;
-        }
-
         let jsonData;
         let formattedStartDate = '';
         let formattedEndDate = '';
@@ -77,9 +69,8 @@ function Label() {
             keywords: KeywordsSearch || null,
             start_date: formattedStartDate || null,
             end_date: formattedEndDate || null,
-            numbers: DataTotalNumber
         };
-        // console.log(requestData);
+        console.log(LabelList);
 
         jsonData = await FetchAPI(requestData);
 
@@ -89,7 +80,6 @@ function Label() {
         }
 
         setData(jsonData);
-        // setShowContext([]);
     };
 
     // 儲存搜尋日期範圍
@@ -107,7 +97,7 @@ function Label() {
         const minute = String(dateTime.getMinutes()).padStart(2, '0');
         const second = String(dateTime.getSeconds()).padStart(2, '0');
 
-        const formattedDateTime = `${year}-${month}-${day}_${hour}:${minute}:${second}`;
+        const formattedDateTime = `${year}-${month}-${day}\n${hour}:${minute}:${second}`;
         return formattedDateTime;
     };
 
@@ -139,8 +129,7 @@ function Label() {
         const fetchData = async () => {
             try {
                 const requestData = {
-                    search_label: "餐點",
-                    numbers: 2
+                    search_label: "餐點"
                 };
 
                 const jsonData = await FetchAPI(requestData);
@@ -155,7 +144,6 @@ function Label() {
 
     return (
         <div>
-            {/* */}
             <div className="navigation">
                 <div className="NTUST">NTUST</div>
                 <div className="searh">
@@ -185,14 +173,6 @@ function Label() {
                         shouldDisableDate={date => isAfter(date, new Date())}
                     />
 
-                    <label htmlFor="DataTotalNumber">數量:</label>
-                    <input
-                        type="number"
-                        className="DataTotalNumber"
-                        value={DataTotalNumber}
-                        onChange={handleDataTotalNumber}
-                    />
-
                     <button className="button_search" onClick={handleDataSearchResult}>搜尋</button>
                 </div>
             </div>
@@ -210,32 +190,34 @@ function Label() {
                     ))}
                 </ul>
 
-                <table>
-                    <thead>
-                        <tr>
-                            <th className="th_number">排序</th>
-                            <th className="th_addtime">日期</th>
-                            <th className="th_publisher">發布單位</th>
-                            <th className="th_title">主旨</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {Data.map((item, index) => (
-                            <React.Fragment key={index}>
-                                <tr>
-                                    <td>{item.rawid}</td>
-                                    <td>{formatDateTime(item.addtime)}</td>
-                                    <td>{item.publisher}</td>
-                                    <td>
-                                        <a href={item.url} target="_blank" rel="noopener noreferrer">
-                                            {item.title}
-                                        </a>
-                                    </td>
-                                </tr>
-                            </React.Fragment>
-                        ))}
-                    </tbody>
-                </table>
+                <div className="table_container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th className="th_number">排序</th>
+                                <th className="th_addtime">日期</th>
+                                <th className="th_publisher">發布單位</th>
+                                <th className="th_title">主旨</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {Data.map((item, index) => (
+                                <React.Fragment key={index}>
+                                    <tr className='tr_context'>
+                                        <td>{item.rawid}</td>
+                                        <td>{formatDateTime(item.addtime)}</td>
+                                        <td>{item.publisher}</td>
+                                        <td>
+                                            <a href={item.url} target="_blank" rel="noopener noreferrer">
+                                                {item.title}
+                                            </a>
+                                        </td>
+                                    </tr>
+                                </React.Fragment>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );

@@ -74,14 +74,14 @@ input,
 
 }
 
-/* 導航列 - 搜尋 - input - 數量搜尋框 */
-.DataTotalNumber {
+/* 導航列 - 搜尋 - input - 數量搜尋框
+/* .DataTotalNumber {
     /* background-color: #eedfed;
-    border: 1px solid #d584d8; */
+    border: 1px solid #d584d8; 
     background-color: #d8ebf8;
     border: 1px solid #a9c2d3;
     width: 80px;
-}
+} */
 
 .button_context {
     font-size: 14px;
@@ -94,6 +94,7 @@ input,
 
 .bulletin_label {
     display: flex;
+    align-items: flex-start; /* 讓彈性容器內容向上對齊 */
 }
 
 .label_list {
@@ -103,6 +104,13 @@ input,
     background-color: #3050a96e;
     font-size: 18px;
     line-height:1.5em;
+    overflow-y: auto; /* 如果 label_list 的內容超過固定高度，則顯示捲軸 */
+    flex-shrink: 0; /* 防止 label_list 縮小 */
+}
+
+.table_container {
+    flex-grow: 1; /* 讓 table 佔據剩餘的彈性空間 */
+    overflow-y: auto; /* 如果 table 的內容超過固定高度，則顯示捲軸 */
 }
 
 .th_number {
@@ -118,12 +126,9 @@ input,
 }
 
 .th_title {
-    width: 50%;
+    width: 60%;
 }
 
-.th_url {
-    width: 3%;
-}
 
 
 
@@ -133,7 +138,7 @@ input,
 /* table */
 table {
     margin: 10px auto;
-    width: 90%;
+    width: 100%;
 }
 
 /* table header */
@@ -147,7 +152,7 @@ thead {
 /* table cells and padding */
 th {
     padding: 10px 5px 10px 5px;
-    border-width:1px;
+    border: 1px solid #ddd;
     font-size: 20px;
 }
 

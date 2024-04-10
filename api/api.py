@@ -131,7 +131,6 @@ class GetProcessedTable(BaseModel):
     keywords: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
-    numbers: int = 20
 # 新增標籤後資訊
 class AddProcessedTable(BaseModel):
     rawid: int
@@ -371,7 +370,7 @@ def get_data_by_rawid(rawids, cursor):
     if not rawids:
         return []  # 如果 rawids 為空，直接返回空列表
     sql_query = """
-        SELECT rawid, publisher, title, url FROM bulletinraw WHERE rawid IN %s
+        SELECT rawid, publisher, title, url, addtime FROM bulletinraw WHERE rawid IN %s
     """
     logger.debug(f"sql_query:{sql_query}")
     cursor.execute(sql_query, [tuple(rawids)])
@@ -387,9 +386,8 @@ async def get_processed_table(post: GetProcessedTable):
         keywords = post.keywords
         start_date = post.start_date
         end_date = post.end_date
-        numbers = post.numbers
         
-        logger.debug(f"search_label:{search_label}, publisher:{publisher}, keywords:{keywords}, start_date:{start_date}, end_date:{end_date}, numbers:{numbers}")
+        logger.debug(f"search_label:{search_label}, publisher:{publisher}, keywords:{keywords}, start_date:{start_date}, end_date:{end_date}")
         
         connection = psycopg2.connect(**db_config)
         cursor = connection.cursor()
@@ -402,7 +400,8 @@ async def get_processed_table(post: GetProcessedTable):
                 "rawid": row[0],
                 "publisher": row[1],
                 "title": row[2],
-                "url": row[3]
+                "url": row[3],
+                "addtime": row[4]
             }
             for row in raw_data
         ]
@@ -471,18 +470,21 @@ async def add_processed_table(post: AddProcessedTable):
 
 # 刪除標籤後資料
 @app.post("/frontend/delete_processed_table")
-async def delete_processed_table(id: int):
+async def delete_processed_table(post: AddProcessedTable):
     logger.info(f"Deleting data {id} from the database")
     try:
+        rawid = post.rawid
+        labelid = post.labelid
+        
         connection = psycopg2.connect(**db_config)
         cursor = connection.cursor()
 
         # 查詢公告是否存在
         cursor.execute("""
             DELETE FROM bulletinprocessed
-            WHERE id = %s
+            WHERE rawid = %s AND labelid = %s
             RETURNING id
-        """, (id,))
+        """, (rawid, labelid))
         # 獲取刪除的行數
         deleted_rows = cursor.rowcount
         # 檢查是否刪除成功
