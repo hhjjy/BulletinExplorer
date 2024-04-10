@@ -1046,7 +1046,7 @@ async def start_llm():
         # 注意：这里我们使用相对路径从api.py的位置导航到llm.py的位置
         # 根据您的实际部署情况，您可能需要调整这个路径
         process = subprocess.Popen(
-            ["python3", "llm.py"],
+            ["pipenv","run","python3", "llm.py"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
