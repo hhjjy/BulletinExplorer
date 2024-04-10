@@ -95,7 +95,7 @@ function Raw() {
         const minute = String(dateTime.getMinutes()).padStart(2, '0');
         const second = String(dateTime.getSeconds()).padStart(2, '0');
 
-        const formattedDateTime = `${year}-${month}-${day}_${hour}:${minute}:${second}`;
+        const formattedDateTime = `${year}-${month}-${day}\n${hour}:${minute}:${second}`;
         return formattedDateTime;
     };
 
@@ -154,7 +154,6 @@ function Raw() {
 
     return (
         <div>
-            {/**/}
             <div className="navigation">
                 <div className="NTUST">NTUST</div>
                 <div className="searh">
@@ -196,16 +195,16 @@ function Raw() {
                 </div>
             </div>
 
-            <table>
-                <thead>
+            <table className='raw_table'>
+                <thead className='raw_thead'>
                     <tr>
-                        <th className="th_number">排序</th>
-                        <th className="th_addtime">日期</th>
-                        <th className="th_publisher">發布單位</th>
-                        <th className="th_title">主旨</th>
+                        <th className="raw_th_number">排序</th>
+                        <th className="raw_th_addtime">日期</th>
+                        <th className="raw_th_publisher">發布單位</th>
+                        <th className="raw_th_title">主旨</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody className='raw_tbody'>
                     {Data.map((item, index) => (
                         <React.Fragment key={index}>
                             <tr>
