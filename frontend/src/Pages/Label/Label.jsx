@@ -4,8 +4,13 @@ import { DateRangePicker } from 'rsuite';
 import 'rsuite/DateRangePicker/styles/index.css';
 import isAfter from 'date-fns/isAfter';
 import './Label.css';
+const env = import.meta.env;
 
 function Label() {
+    const HOST = env.VITE_DEV_OR_MAIN === 'dev' ? env.VITE_DEV_HOST : env.VITE_APP_MAIN_HOST;
+    const PORT = env.VITE_DEV_OR_MAIN === 'dev' ? env.VITE_DEV_PORT : env.VITE_MAIN_PORT;
+    const apiUrl = `http://${HOST}:${PORT}/api/frontend/get_processed_table`;
+
     const location = useLocation();
     useEffect(() => {
         document.title = "Label Page";
@@ -70,7 +75,6 @@ function Label() {
             start_date: formattedStartDate || null,
             end_date: formattedEndDate || null,
         };
-        console.log(LabelList);
 
         jsonData = await FetchAPI(requestData);
 
@@ -104,7 +108,7 @@ function Label() {
     // 抓取後端 API 資料
     const FetchAPI = async (requestData) => {
         try {
-            const response = await fetch('http://localhost:8003/frontend/get_processed_table', {
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -119,7 +123,7 @@ function Label() {
             const jsonData = await response.json();
             return jsonData;
         } catch (error) {
-            console.error('Error fetching data:', error);
+            // console.error('Error fetching data:', error);
             return [];
         }
     };
@@ -135,11 +139,9 @@ function Label() {
                 const jsonData = await FetchAPI(requestData);
                 setData(jsonData);
             } catch (error) {
-                console.error('Error fetching data:', error);
+                // console.error('Error fetching data:', error);
             }
         };
-
-        fetchData();
     }, []);
 
     return (
