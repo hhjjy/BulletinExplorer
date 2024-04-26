@@ -147,8 +147,9 @@ class LLMService:
             "標題": "{title}",
             "內文": "{content}"
             """
+        # logger.info(f"user_input:\n{user_input}\n")
         chat_completion = await client.chat.completions.create(
-            model="gpt-4-0613",
+            model="gpt-4-turbo-2024-04-09",
             messages=[
                 {
                     "role": "system",
@@ -189,6 +190,7 @@ class LLMService:
                 content = bulletin.get('content')
                 logger.info(f"處理第{i}筆資料,rawid:{rawid}")
                 # Classify content using three different LLMs and perform voting
+                logger.info(f"title:{title}\n\ncontent:{content}\n")
                 labels = await self.classify_and_vote(title, content)
                 # Post labels back to the API
                 for tag in labels.get('tags'):
@@ -210,10 +212,10 @@ class LLMService:
             # logger.info(f"input : {response}")
             """从字符串中提取 JSON 并返回字典"""
             # 匹配被 ```json\n 和 ``` 包裹的，或直接以 { 开头直到 } 结尾（考虑嵌套的情况）的 JSON 字符串
-            pattern = r'```json\n([\s\S]*?)```|(\{[\s\S]*?\}(?![\s\S]*\}))'
-            matches = re.search(pattern, response, re.DOTALL)
+            pattern = r'```json\n([\s\S]*?)```'
+            match = re.search(pattern, response)
             # 如果匹配到被 ``` 包裹的 JSON，使用第一个匹配组；否则，使用第二个匹配组
-            json_content_str = matches.group(1) if matches.group(1) else (matches.group(2) if matches.group(2) else '{"tags": ["其他"]}')
+            json_content_str = match.group(1) 
             response_dict = json.loads(json_content_str)
             # logger.info(f"output : {response_dict}")
             return response_dict
@@ -308,8 +310,6 @@ class TestLabelVoter(unittest.TestCase):
         llm3_labels = {"tags": []}
         expected_result = {"tags": ["其他"]}
         self.assertEqual(LLM.voting(llm1_labels, llm2_labels, llm3_labels), expected_result)
-
-
 class TestAPI(unittest.TestCase):
     def save_label_inital(self):
         api = f"{API_server}/llm/save_label"
@@ -329,8 +329,13 @@ class TestAPI(unittest.TestCase):
         
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='使用指定的執行次數來運行 LLM 服務。')
+    parser.add_argument('--max_data', type=int, default=1, help='處理的數據項目的最大數量。')
+    args = parser.parse_args()
+
     LLM = LLMService(f"{API_server}")
-    asyncio.run(LLM.execute(max_data=1))
+    asyncio.run(LLM.execute(max_data=args.max_data))
 
 
     
