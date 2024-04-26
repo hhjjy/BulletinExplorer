@@ -4,8 +4,13 @@ import { DateRangePicker } from 'rsuite';
 import 'rsuite/DateRangePicker/styles/index.css';
 import isAfter from 'date-fns/isAfter';
 import './Raw.css';
+const env = import.meta.env;
 
 function Raw() {
+    const HOST = env.VITE_DEV_OR_MAIN === 'dev' ? env.VITE_DEV_HOST : env.VITE_APP_MAIN_HOST;
+    const PORT = env.VITE_DEV_OR_MAIN === 'dev' ? env.VITE_DEV_PORT : env.VITE_MAIN_PORT;
+    const apiUrl = `http://${HOST}:${PORT}/api/frontend/get_bulletin`;
+
     const location = useLocation();
     useEffect(() => {
         document.title = "Raw Page";
@@ -114,7 +119,7 @@ function Raw() {
     // 抓取後端 API 資料
     const FetchAPI = async (requestData) => {
         try {
-            const response = await fetch('http://localhost:8003/frontend/get_bulletin', {
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -129,7 +134,7 @@ function Raw() {
             const jsonData = await response.json();
             return jsonData;
         } catch (error) {
-            console.error('Error fetching data:', error);
+            // console.error('Error fetching data:', error);
             return [];
         }
     };
@@ -145,7 +150,7 @@ function Raw() {
                 const jsonData = await FetchAPI(requestData);
                 setData(jsonData);
             } catch (error) {
-                console.error('Error fetching data:', error);
+                // console.error('Error fetching data:', error);
             }
         };
 

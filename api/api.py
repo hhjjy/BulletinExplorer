@@ -57,7 +57,7 @@ app = FastAPI()
 # 加入 CORSMiddleware 以處理跨來源請求
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # 允許所有來源，你也可以指定特定的來源
+    allow_origins=["*"],  # 允許所有來源，你也可以指定特定的來源
     allow_credentials=True,
     allow_methods=["*"],  # 允許所有 HTTP 方法
     allow_headers=["*"],  # 允許所有 HTTP 標頭
