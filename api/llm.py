@@ -132,7 +132,7 @@ class LLMService:
             2. 從出現過的標籤，把合理的標籤內容合併到一起，並把最終結果以JSON格式輸出。如果最終結果沒有任何標籤，請輸出標籤"其他"，否則不輸出標籤"其他"。具體步驟如下：
                 - **標籤合併：** 根據上一步驟中每個段落所匹配的標籤，將合理的標籤進行合併，形成一個包含所有相關標籤的集合。
                 - **JSON格式輸出：** 將合併後的標籤集合轉換為JSON格式，這些標籤將包含在tags鍵值下。如果經過分析後，某個公告內容不適合任何預定義的標籤，則為該公告分配一個"其他"標籤。
-
+            3. 最後請檢查輸出是否包含大括號 如果沒有請新增。
             ### 標籤與標籤定義：
             "餐點": "提供免費食物或餐點讓大家吃",
             "自我認識": "提供心理健康相關服務，如個別諮詢、小團體訓練、心理測驗、生命教育和性平教育，但不包含透過分享引起他人的反饋和討論",
@@ -147,8 +147,9 @@ class LLMService:
             "標題": "{title}",
             "內文": "{content}"
             """
+        # logger.info(f"user_input:\n{user_input}\n")
         chat_completion = await client.chat.completions.create(
-            model="gpt-4-0613",
+            model="gpt-4-turbo-2024-04-09",
             messages=[
                 {
                     "role": "system",
@@ -189,6 +190,7 @@ class LLMService:
                 content = bulletin.get('content')
                 logger.info(f"處理第{i}筆資料,rawid:{rawid}")
                 # Classify content using three different LLMs and perform voting
+                logger.info(f"title:{title}\n\ncontent:{content}\n")
                 labels = await self.classify_and_vote(title, content)
                 # Post labels back to the API
                 for tag in labels.get('tags'):
@@ -210,18 +212,20 @@ class LLMService:
             # logger.info(f"input : {response}")
             """从字符串中提取 JSON 并返回字典"""
             # 匹配被 ```json\n 和 ``` 包裹的，或直接以 { 开头直到 } 结尾（考虑嵌套的情况）的 JSON 字符串
-            pattern = r'```json\n([\s\S]*?)```|(\{[\s\S]*?\}(?![\s\S]*\}))'
-            matches = re.search(pattern, response, re.DOTALL)
+            pattern = r'```json\n([\s\S]*?)```'
+            match = re.search(pattern, response)
             # 如果匹配到被 ``` 包裹的 JSON，使用第一个匹配组；否则，使用第二个匹配组
-            json_content_str = matches.group(1) if matches.group(1) else (matches.group(2) if matches.group(2) else '{"tags": ["其他"]}')
+            json_content_str = match.group(1) 
             response_dict = json.loads(json_content_str)
             # logger.info(f"output : {response_dict}")
             return response_dict
         except Exception as Error:
+
             error_message = "無法解析LLM輸出結果！ {}".format(str(Error))
             error_traceback = traceback.format_exc()
-            logger.error("%s\n%s", error_message, error_traceback)
-            logger.info(f"input : {response}")
+            logger.error(f"輸入字串 : {response}")
+            logger.error(f"解析字串 : {json_content_str}")
+            logger.error("問題 : %s\n%s", error_message, error_traceback)
             return {"tags":["其他"]}
     
     async def classify_and_vote(self,title,content):
@@ -306,8 +310,6 @@ class TestLabelVoter(unittest.TestCase):
         llm3_labels = {"tags": []}
         expected_result = {"tags": ["其他"]}
         self.assertEqual(LLM.voting(llm1_labels, llm2_labels, llm3_labels), expected_result)
-
-
 class TestAPI(unittest.TestCase):
     def save_label_inital(self):
         api = f"{API_server}/llm/save_label"
@@ -327,8 +329,13 @@ class TestAPI(unittest.TestCase):
         
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='使用指定的執行次數來運行 LLM 服務。')
+    parser.add_argument('--max_data', type=int, default=1, help='處理的數據項目的最大數量。')
+    args = parser.parse_args()
+
     LLM = LLMService(f"{API_server}")
-    asyncio.run(LLM.execute(max_data=1))
+    asyncio.run(LLM.execute(max_data=args.max_data))
 
 
     

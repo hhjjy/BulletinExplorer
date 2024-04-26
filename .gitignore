@@ -1,4 +1,5 @@
 # Django #
+api/log/*
 end_development.sh
 test.py
 test.ipynb
