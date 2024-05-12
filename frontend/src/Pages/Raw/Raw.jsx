@@ -7,10 +7,9 @@ import './Raw.css';
 const env = import.meta.env;
 
 function Raw() {
-    const HOST = env.VITE_DEV_OR_MAIN === 'dev' ? env.VITE_DEV_HOST : env.VITE_APP_MAIN_HOST;
+    const HOST = env.VITE_DEV_OR_MAIN === 'dev' ? env.VITE_DEV_HOST : env.VITE_MAIN_HOST;
     const PORT = env.VITE_DEV_OR_MAIN === 'dev' ? env.VITE_DEV_PORT : env.VITE_MAIN_PORT;
     const apiUrl = `http://${HOST}:${PORT}/frontend/get_bulletin`;
-    console.log(apiUrl)
 
     const location = useLocation();
     useEffect(() => {
