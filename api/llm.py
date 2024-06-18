@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from log_config import setup_logger
 import logging,traceback
 from openai import AsyncOpenAI
+import atexit
 
 load_dotenv()
 mode = os.getenv("DEV_OR_MAIN")  # 默認為開發環境 
@@ -134,7 +135,7 @@ class LLMService:
                 - **JSON格式輸出：** 將合併後的標籤集合轉換為JSON格式，這些標籤將包含在tags鍵值下。如果經過分析後，某個公告內容不適合任何預定義的標籤，則為該公告分配一個"其他"標籤。
             3. 最後請檢查輸出是否包含大括號 如果沒有請新增。
             ### 標籤與標籤定義：
-            "餐點": "提供免費食物或餐點讓大家吃",
+            "餐點": "提供免費食物、餐點或餐盒、點心",
             "自我認識": "提供心理健康相關服務，如個別諮詢、小團體訓練、心理測驗、生命教育和性平教育，但不包含透過分享引起他人的反饋和討論",
             "考試": "用於評估學生學習成果的正式測試，包括書面、口頭或實踐測試，通過後可獲得證照或證書",
             "學習技能": "提升個人能力、知識或專業技能",
@@ -149,7 +150,7 @@ class LLMService:
             """
         # logger.info(f"user_input:\n{user_input}\n")
         chat_completion = await client.chat.completions.create(
-            model="gpt-4-turbo-2024-04-09",
+            model="gpt-4o-2024-05-13",
             messages=[
                 {
                     "role": "system",
@@ -200,11 +201,9 @@ class LLMService:
             else :
                 logger.info(f"llm 處完{max_data}筆資料，停止運行！")
                 break 
-        # Report finishing
+        # delete event 
         # requests.post(f"{self.api_endpoint}/llm/report_finishing")
-
-
-
+        
     
     @staticmethod
     def extract_json_from_response(response: str) -> dict:
@@ -226,6 +225,7 @@ class LLMService:
             logger.error(f"輸入字串 : {response}")
             logger.error(f"解析字串 : {json_content_str}")
             logger.error("問題 : %s\n%s", error_message, error_traceback)
+            
             return {"tags":["其他"]}
     
     async def classify_and_vote(self,title,content):
@@ -327,8 +327,18 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), expect)
         
+def delete_event():
+    url = API_server + "/llm/delete_event"
+    data = {
+        "function": "llm",
+        "status": "2"
+    }
+    response = requests.post(url, json=data)
+    logger.info("離開!執行完 delete_event")
 
 if __name__ == '__main__':
+    atexit.register(delete_event)
+
     import argparse
     parser = argparse.ArgumentParser(description='使用指定的執行次數來運行 LLM 服務。')
     parser.add_argument('--max_data', type=int, default=1, help='處理的數據項目的最大數量。')
@@ -338,7 +348,5 @@ if __name__ == '__main__':
     asyncio.run(LLM.execute(max_data=args.max_data))
 
 
-    
-    
 
 

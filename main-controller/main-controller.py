@@ -16,13 +16,13 @@ load_dotenv()
 mode = os.getenv("DEV_OR_MAIN")  # 默認為開發環境
 if mode == "main" or mode == "MAIN":# dev
     print("MAIN MODE")
-    API_server =  "http://"+os.getenv("API_MAIN_HOST")+":"+os.getenv("API_MAIN_PORT")
+    API_server =  "http://"+os.getenv("API_MAIN_HOST")+":"+os.getenv("API_MAIN_PORT")+'/api'
     print(f"LLM API SERVER :{API_server}")
 else:
     print(f"Defaulting to DEVELOPMENT MODE.")
     print("DEV MODE ")
     print(os.getenv("API_DEV_HOST"))
-    API_server =  "http://"+os.getenv("API_DEV_HOST")+":"+os.getenv("API_DEV_PORT")
+    API_server =  "http://"+os.getenv("API_DEV_HOST")+":"+os.getenv("API_DEV_PORT")+'/api'
     print(f"LLM API SERVER :{API_server}")
 
 

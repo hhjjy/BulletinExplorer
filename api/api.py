@@ -52,7 +52,7 @@ else:
     
 
 # print(db_config)
-app = FastAPI()
+app = FastAPI(root_path="/api")
 
 # 加入 CORSMiddleware 以處理跨來源請求
 app.add_middleware(
@@ -876,6 +876,53 @@ async def get_unprocessed_data():
             cursor.close()
             connection.close()
 
+@app.post("/llm/delete_event")
+async def delete_event(post: Coordinate):
+    logger.info(f"{post.function} is deleting")
+    try:
+        connection = psycopg2.connect(**db_config)
+        cursor = connection.cursor()
+        # 檢查數據是否已存在
+            # INSERT INTO public.coordinates (function, start)
+            # VALUES (%s, %s);
+        # cursor.execute("""
+                       
+        #     DO $$
+        #     BEGIN
+        #         -- Check if there is only one row meeting the conditions
+        #         IF (SELECT COUNT(*) FROM public.coordinates WHERE function = %s AND start = 1 AND finish = false) = 1 THEN
+        #             -- Update the 'finish' column to 1 for the specified conditions
+        #             UPDATE public.coordinates
+        #             SET finish = true
+        #             WHERE function = %s AND start = 1 AND finish = false;
+        #         ELSE
+        #             -- Return an error message if there are not exactly one row matching the conditions
+        #             RAISE EXCEPTION 'More than one row or no row found matching the specified conditions';
+        #         END IF;
+        #     END $$;
+        # """, (post.function, post.status))
+        cursor.execute("""
+            UPDATE public.coordinates
+            SET finish = true,
+                start = 2
+            WHERE function = %s AND start = 1 AND finish = false;
+        """, (post.function, ))
+        connection.commit()
+        logger.info(f"{post.function} Delete Done")
+        return {f"Delete {post.function}"}
+
+    except Exception as Error:
+        error_message = "Error occurred: {}".format(str(Error))
+        error_traceback = traceback.format_exc()
+        logger.error("%s\n%s", error_message, error_traceback)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(Error),"detail":error_traceback},
+        )
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
 
 @app.post("/bot/start_event")
 async def start_event(post: Coordinate):
@@ -913,7 +960,6 @@ async def delete_event(post: Coordinate):
         connection = psycopg2.connect(**db_config)
         cursor = connection.cursor()
         # 檢查數據是否已存在
-
             # INSERT INTO public.coordinates (function, start)
             # VALUES (%s, %s);
         # cursor.execute("""

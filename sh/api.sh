@@ -1,4 +1,8 @@
 #!/bin/bash
+SCRIPT_DIR=$(dirname "$(realpath "$0")")
+
+# 進入腳本所在的目錄
+cd "$SCRIPT_DIR"
 . ../.env
 HOST=$API_DEV_HOST
 PORT=$API_DEV_PORT

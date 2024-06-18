@@ -7,9 +7,11 @@ import './Raw.css';
 const env = import.meta.env;
 
 function Raw() {
-    const HOST = env.VITE_DEV_OR_MAIN === 'dev' ? env.VITE_DEV_HOST : env.VITE_MAIN_HOST;
-    const PORT = env.VITE_DEV_OR_MAIN === 'dev' ? env.VITE_DEV_PORT : env.VITE_MAIN_PORT;
-    const apiUrl = `http://${HOST}:${PORT}/frontend/get_bulletin`;
+    // const HOST = env.VITE_DEV_OR_MAIN === 'dev' ? env.VITE_DEV_HOST : env.VITE_MAIN_HOST;
+    // const PORT = env.VITE_DEV_OR_MAIN === 'dev' ? env.VITE_DEV_PORT : env.VITE_MAIN_PORT;
+    // const apiUrl = `http://${HOST}:${PORT}/frontend/get_bulletin`;
+
+    const apiUrl = env.VITE_DEV_OR_MAIN === 'dev' ? `https://${env.VITE_API_DEV_URL}/frontend/get_bulletin` : `https://${env.VITE_API_MAIN_URL}/frontend/get_bulletin`;
 
     const location = useLocation();
     useEffect(() => {

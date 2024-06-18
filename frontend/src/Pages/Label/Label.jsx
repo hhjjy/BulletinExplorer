@@ -7,9 +7,10 @@ import './Label.css';
 const env = import.meta.env;
 
 function Label() {
-    const HOST = env.VITE_DEV_OR_MAIN === 'dev' ? env.VITE_DEV_HOST : env.VITE_MAIN_HOST;
-    const PORT = env.VITE_DEV_OR_MAIN === 'dev' ? env.VITE_DEV_PORT : env.VITE_MAIN_PORT;
-    const apiUrl = `http://${HOST}:${PORT}/frontend/get_processed_table`;
+    // const HOST = env.VITE_DEV_OR_MAIN === 'dev' ? env.VITE_DEV_HOST : env.VITE_MAIN_HOST;
+    // const PORT = env.VITE_DEV_OR_MAIN === 'dev' ? env.VITE_DEV_PORT : env.VITE_MAIN_PORT;
+    // const apiUrl = `http://${HOST}:${PORT}/frontend/get_processed_table`;
+    const apiUrl = env.VITE_DEV_OR_MAIN === 'dev' ? `https://${env.VITE_API_DEV_URL}/frontend/get_processed_table` : `https://${env.VITE_API_MAIN_URL}/frontend/get_processed_table`;
 
     const location = useLocation();
     useEffect(() => {

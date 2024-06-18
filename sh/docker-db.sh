@@ -1,5 +1,9 @@
 #!/bin/bash
 # 加载环境变量
+SCRIPT_DIR=$(dirname "$(realpath "$0")")
+
+# 進入腳本所在的目錄
+cd "$SCRIPT_DIR"
 . ../.env
 
 docker stop postgres-main
